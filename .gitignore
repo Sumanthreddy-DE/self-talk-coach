@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Env / secrets
+.env
+.env.local
+
+# Project data (real audio + transcripts must NEVER be committed)
+data/
+
+# Anki output decks
+*.apkg
+
+# Whisper model cache
+models/
+
+# Root-level audio safety net: catches files dropped accidentally outside data/
+*.wav
+*.mp4
+*.mov
+*.webm
+*.mkv
+*.m4a
+*.mp3
+
+# Allow synthetic sample data (committed intentionally)
+!samples/*.json
+!samples/*.md
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini

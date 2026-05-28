@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "self-talk-coach"
+version = "0.1.0"
+description = "Personal German vocab miner: self-talk videos -> Anki cards via Whisper + spaCy + Claude"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{name = "Sumanth Reddy Settipalli"}]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Natural Language :: German",
+    "Topic :: Education",
+]
+dependencies = [
+    "faster-whisper>=1.0",
+    "spacy>=3.7",
+    "genanki>=0.13",
+    "anthropic>=0.40",
+    "typer>=0.12",
+    "pydub>=0.25",
+    "python-dotenv>=1.0",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "requests>=2.31",
+    "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+stc = "self_talk_coach.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
