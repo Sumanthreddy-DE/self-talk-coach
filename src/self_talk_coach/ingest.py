@@ -8,8 +8,7 @@ from pathlib import Path
 import hashlib
 import shutil
 
-from self_talk_coach.db import get_media_file_by_hash, insert_media_file
-from self_talk_coach.domain import DateConfidence, ImportOutcome, MediaStatus
+from self_talk_coach.domain import DateConfidence, ImportOutcome
 from self_talk_coach.paths import AppPaths
 
 SUPPORTED_MEDIA_EXTENSIONS = {
@@ -73,5 +72,7 @@ def archived_dir_for(paths: AppPaths, session_at: datetime) -> Path:
 
 
 def move_file(source: Path, destination: Path) -> None:
+    if destination.exists():
+        raise FileExistsError(f"Destination already exists: {destination}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(source), str(destination))
