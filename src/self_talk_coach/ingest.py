@@ -99,6 +99,7 @@ def import_inbox(conn: sqlite3.Connection, paths: AppPaths) -> list[ImportedMedi
     for source_path in iter_media_files(paths.media_inbox):
         content_hash: str | None = None
         managed_path: Path | None = None
+        current_path = source_path
 
         try:
             content_hash = hash_file(source_path)
@@ -115,6 +116,7 @@ def import_inbox(conn: sqlite3.Connection, paths: AppPaths) -> list[ImportedMedi
                     archived_dir_for(paths, session_at) / managed_filename
                 )
                 move_file(source_path, managed_path)
+                current_path = managed_path
                 imported.append(
                     ImportedMedia(
                         source_path=source_path,
@@ -130,6 +132,7 @@ def import_inbox(conn: sqlite3.Connection, paths: AppPaths) -> list[ImportedMedi
             original_path = str(source_path)
             original_filename = source_path.name
             move_file(source_path, managed_path)
+            current_path = managed_path
             media_file_id = insert_media_file(
                 conn,
                 original_filename=original_filename,
@@ -153,7 +156,7 @@ def import_inbox(conn: sqlite3.Connection, paths: AppPaths) -> list[ImportedMedi
             )
         except Exception as error:
             conn.rollback()
-            failed_path = _move_failed_source(source_path, paths, content_hash)
+            failed_path = _move_failed_source(current_path, paths, content_hash)
             imported.append(
                 ImportedMedia(
                     source_path=source_path,

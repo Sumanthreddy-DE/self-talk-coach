@@ -151,3 +151,31 @@ def test_import_inbox_archives_duplicate_without_second_db_row(tmp_path: Path) -
     assert duplicate_results[0].managed_path.exists()
     assert "archived" in duplicate_results[0].managed_path.parts
     assert count == 1
+
+
+def test_import_inbox_moves_processed_file_to_failed_when_insert_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    paths = AppPaths.from_data_root(tmp_path / "data")
+    paths.ensure_workspace()
+    source = paths.media_inbox / "random123.mp4"
+    source.write_bytes(b"video bytes")
+
+    def fail_insert_media_file(*args, **kwargs):
+        raise RuntimeError("insert failed")
+
+    monkeypatch.setattr("self_talk_coach.ingest.insert_media_file", fail_insert_media_file)
+
+    with connect(paths.db_path) as conn:
+        init_db(conn)
+        results = import_inbox(conn, paths)
+        count = conn.execute("SELECT COUNT(*) FROM media_files").fetchone()[0]
+
+    assert len(results) == 1
+    assert results[0].outcome == ImportOutcome.FAILED
+    assert not source.exists()
+    assert not any(paths.media_processed.rglob("*.*"))
+    assert results[0].managed_path is not None
+    assert results[0].managed_path.exists()
+    assert paths.media_failed in results[0].managed_path.parents
+    assert count == 0
