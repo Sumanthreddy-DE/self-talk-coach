@@ -5,7 +5,7 @@ def test_import_package() -> None:
 
 
 def test_import_stubs() -> None:
-    from self_talk_coach import anki, cli, enrich, ingest, mine, transcribe  # noqa: F401
+    from self_talk_coach import anki, cli, db, domain, enrich, ingest, mine, paths, transcribe  # noqa: F401
 
 
 def test_cli_version(capsys) -> None:
