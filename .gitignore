@@ -9,6 +9,7 @@ build/
 .ruff_cache/
 .venv/
 venv/
+.worktrees/
 
 # Env / secrets
 .env
