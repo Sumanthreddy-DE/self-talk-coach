@@ -46,7 +46,7 @@ def init_db(conn: sqlite3.Connection) -> None:
 
         CREATE TABLE IF NOT EXISTS transcripts (
             id INTEGER PRIMARY KEY,
-            media_file_id INTEGER NOT NULL REFERENCES media_files(id) ON DELETE CASCADE,
+            media_file_id INTEGER NOT NULL UNIQUE REFERENCES media_files(id) ON DELETE CASCADE,
             language TEXT NOT NULL,
             model TEXT NOT NULL,
             duration_seconds REAL,
@@ -147,7 +147,6 @@ def insert_media_file(
             error_message,
         ),
     )
-    conn.commit()
     return int(cursor.lastrowid)
 
 
