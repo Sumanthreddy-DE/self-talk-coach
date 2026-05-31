@@ -1,13 +1,15 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from self_talk_coach.domain import DateConfidence
+from self_talk_coach.db import connect, get_media_file_by_hash, init_db
+from self_talk_coach.domain import DateConfidence, ImportOutcome
 from self_talk_coach.ingest import (
     SUPPORTED_MEDIA_EXTENSIONS,
     archived_dir_for,
     build_managed_filename,
     hash_file,
     infer_session_datetime,
+    import_inbox,
     iter_media_files,
     move_file,
     processed_dir_for,
@@ -101,3 +103,51 @@ def test_move_file_raises_when_destination_exists_and_preserves_files(tmp_path: 
 
     assert source.read_bytes() == b"source"
     assert destination.read_bytes() == b"destination"
+
+
+def test_import_inbox_moves_file_to_processed_and_records_db(tmp_path: Path) -> None:
+    paths = AppPaths.from_data_root(tmp_path / "data")
+    paths.ensure_workspace()
+    source = paths.media_inbox / "random123.mp4"
+    source.write_bytes(b"video bytes")
+    expected_hash = hash_file(source)
+
+    with connect(paths.db_path) as conn:
+        init_db(conn)
+        results = import_inbox(conn, paths)
+        row = get_media_file_by_hash(conn, expected_hash)
+
+    assert len(results) == 1
+    assert results[0].outcome == ImportOutcome.IMPORTED
+    assert not source.exists()
+    assert results[0].managed_path is not None
+    assert results[0].managed_path.exists()
+    assert row is not None
+    assert row["original_filename"] == "random123.mp4"
+    assert row["status"] == "imported"
+
+
+def test_import_inbox_archives_duplicate_without_second_db_row(tmp_path: Path) -> None:
+    paths = AppPaths.from_data_root(tmp_path / "data")
+    paths.ensure_workspace()
+
+    with connect(paths.db_path) as conn:
+        init_db(conn)
+
+        first = paths.media_inbox / "first.mp4"
+        first.write_bytes(b"same bytes")
+        first_results = import_inbox(conn, paths)
+
+        duplicate = paths.media_inbox / "second.mp4"
+        duplicate.write_bytes(b"same bytes")
+        duplicate_results = import_inbox(conn, paths)
+
+        count = conn.execute("SELECT COUNT(*) FROM media_files").fetchone()[0]
+
+    assert first_results[0].outcome == ImportOutcome.IMPORTED
+    assert duplicate_results[0].outcome == ImportOutcome.DUPLICATE
+    assert not duplicate.exists()
+    assert duplicate_results[0].managed_path is not None
+    assert duplicate_results[0].managed_path.exists()
+    assert "archived" in duplicate_results[0].managed_path.parts
+    assert count == 1
