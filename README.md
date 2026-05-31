@@ -31,7 +31,12 @@ python -m venv .venv
 cp .env.example .env
 # ANTHROPIC_API_KEY in .env einfügen
 
-# Mit synthetischem Beispiel testen (kein echtes Audio nötig)
+# Lokale Mediathek initialisieren und eigene Videos importieren
+stc init
+# Put daily German self-talk videos into data/media/inbox/
+stc import
+
+# Optional: Mit synthetischem Beispiel testen (kein echtes Audio nötig)
 stc mine samples/
 stc enrich --max-cards 5
 stc pack

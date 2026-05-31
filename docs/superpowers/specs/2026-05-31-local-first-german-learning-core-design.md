@@ -295,6 +295,8 @@ The app should later learn from review behavior. If the user repeatedly rejects 
 
 ### Milestone 1: Local Database And Media Library
 
+Implementation status: planned in `docs/superpowers/plans/2026-05-31-local-db-media-library.md`; completed when `stc init` and `stc import` pass the full test suite.
+
 - Add SQLite schema and migrations.
 - Add `stc init`.
 - Create managed media folders.
