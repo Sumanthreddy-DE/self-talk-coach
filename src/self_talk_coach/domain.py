@@ -29,3 +29,18 @@ class ImportOutcome(StrEnum):
     IMPORTED = "imported"
     DUPLICATE = "duplicate"
     FAILED = "failed"
+
+
+class TranscriptStatus(StrEnum):
+    """Storage status for one media transcription attempt."""
+
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class TranscriptionOutcome(StrEnum):
+    """Outcome category for one transcription run item."""
+
+    TRANSCRIBED = "transcribed"
+    SKIPPED = "skipped"
+    FAILED = "failed"

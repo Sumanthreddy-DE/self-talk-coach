@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterable
 from pathlib import Path
 
-from self_talk_coach.domain import DateConfidence, MediaStatus
+from self_talk_coach.domain import DateConfidence, MediaStatus, TranscriptStatus
 
 SCHEMA_VERSION = 1
 
@@ -62,6 +63,12 @@ def init_db(conn: sqlite3.Connection) -> None:
             end_seconds REAL NOT NULL,
             text TEXT NOT NULL
         );
+
+        CREATE INDEX IF NOT EXISTS idx_transcript_segments_transcript_id
+            ON transcript_segments(transcript_id);
+
+        CREATE INDEX IF NOT EXISTS idx_transcript_segments_time
+            ON transcript_segments(transcript_id, start_seconds);
 
         CREATE TABLE IF NOT EXISTS learning_candidates (
             id INTEGER PRIMARY KEY,
@@ -155,3 +162,117 @@ def get_media_file_by_hash(conn: sqlite3.Connection, content_hash: str) -> sqlit
         "SELECT * FROM media_files WHERE content_hash = ?",
         (content_hash,),
     ).fetchone()
+
+
+def get_media_file_by_id(conn: sqlite3.Connection, media_file_id: int) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT * FROM media_files WHERE id = ?",
+        (media_file_id,),
+    ).fetchone()
+
+
+def list_media_files_for_transcription(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute(
+        """
+        SELECT media_files.*
+        FROM media_files
+        WHERE media_files.status IN (?, ?)
+          AND NOT EXISTS (
+              SELECT 1
+              FROM transcripts
+              WHERE transcripts.media_file_id = media_files.id
+                AND transcripts.status = ?
+          )
+        ORDER BY media_files.inferred_session_at, media_files.id
+        """,
+        (
+            MediaStatus.IMPORTED.value,
+            MediaStatus.FAILED.value,
+            TranscriptStatus.COMPLETED.value,
+        ),
+    ).fetchall()
+
+
+def get_transcript_by_media_file_id(
+    conn: sqlite3.Connection, media_file_id: int
+) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT * FROM transcripts WHERE media_file_id = ?",
+        (media_file_id,),
+    ).fetchone()
+
+
+def replace_transcript(
+    conn: sqlite3.Connection,
+    *,
+    media_file_id: int,
+    language: str,
+    model: str,
+    duration_seconds: float | None,
+    status: TranscriptStatus,
+    error_message: str | None,
+    segments: Iterable[dict[str, float | str]],
+) -> int:
+    conn.execute("DELETE FROM transcripts WHERE media_file_id = ?", (media_file_id,))
+    cursor = conn.execute(
+        """
+        INSERT INTO transcripts (
+            media_file_id,
+            language,
+            model,
+            duration_seconds,
+            status,
+            error_message
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            media_file_id,
+            language,
+            model,
+            duration_seconds,
+            status.value,
+            error_message,
+        ),
+    )
+    transcript_id = int(cursor.lastrowid)
+    conn.executemany(
+        """
+        INSERT INTO transcript_segments (
+            transcript_id,
+            start_seconds,
+            end_seconds,
+            text
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            (
+                transcript_id,
+                segment["start_seconds"],
+                segment["end_seconds"],
+                segment["text"],
+            )
+            for segment in segments
+        ),
+    )
+    return transcript_id
+
+
+def update_media_file_status(
+    conn: sqlite3.Connection,
+    *,
+    media_file_id: int,
+    status: MediaStatus,
+    error_message: str | None,
+) -> None:
+    conn.execute(
+        """
+        UPDATE media_files
+        SET status = ?,
+            error_message = ?,
+            updated_at = datetime('now')
+        WHERE id = ?
+        """,
+        (status.value, error_message, media_file_id),
+    )
