@@ -51,7 +51,7 @@ def init_db(conn: sqlite3.Connection) -> None:
             language TEXT NOT NULL,
             model TEXT NOT NULL,
             duration_seconds REAL,
-            status TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('completed', 'failed')),
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             error_message TEXT
         );
@@ -213,49 +213,57 @@ def replace_transcript(
     error_message: str | None,
     segments: Iterable[dict[str, float | str]],
 ) -> int:
-    conn.execute("DELETE FROM transcripts WHERE media_file_id = ?", (media_file_id,))
-    cursor = conn.execute(
-        """
-        INSERT INTO transcripts (
-            media_file_id,
-            language,
-            model,
-            duration_seconds,
-            status,
-            error_message
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (
-            media_file_id,
-            language,
-            model,
-            duration_seconds,
-            status.value,
-            error_message,
-        ),
-    )
-    transcript_id = int(cursor.lastrowid)
-    conn.executemany(
-        """
-        INSERT INTO transcript_segments (
-            transcript_id,
-            start_seconds,
-            end_seconds,
-            text
-        )
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            (
-                transcript_id,
-                segment["start_seconds"],
-                segment["end_seconds"],
-                segment["text"],
+    conn.execute("SAVEPOINT replace_transcript")
+    try:
+        conn.execute("DELETE FROM transcripts WHERE media_file_id = ?", (media_file_id,))
+        cursor = conn.execute(
+            """
+            INSERT INTO transcripts (
+                media_file_id,
+                language,
+                model,
+                duration_seconds,
+                status,
+                error_message
             )
-            for segment in segments
-        ),
-    )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                media_file_id,
+                language,
+                model,
+                duration_seconds,
+                status.value,
+                error_message,
+            ),
+        )
+        transcript_id = int(cursor.lastrowid)
+        conn.executemany(
+            """
+            INSERT INTO transcript_segments (
+                transcript_id,
+                start_seconds,
+                end_seconds,
+                text
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                (
+                    transcript_id,
+                    segment["start_seconds"],
+                    segment["end_seconds"],
+                    segment["text"],
+                )
+                for segment in segments
+            ),
+        )
+    except Exception:
+        conn.execute("ROLLBACK TO SAVEPOINT replace_transcript")
+        conn.execute("RELEASE SAVEPOINT replace_transcript")
+        raise
+
+    conn.execute("RELEASE SAVEPOINT replace_transcript")
     return transcript_id
 
 

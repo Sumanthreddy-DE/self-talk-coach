@@ -149,6 +149,23 @@ def test_transcripts_allow_one_transcript_per_media_file(tmp_path: Path) -> None
             )
 
 
+def test_transcripts_reject_unknown_status(tmp_path: Path) -> None:
+    db_path = tmp_path / "self_talk_coach.sqlite"
+
+    with connect(db_path) as conn:
+        init_db(conn)
+        media_id = insert_test_media(conn)
+
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                """
+                INSERT INTO transcripts (media_file_id, language, model, status)
+                VALUES (?, ?, ?, ?)
+                """,
+                (media_id, "en", "test-model", "nonsense"),
+            )
+
+
 def test_replace_transcript_inserts_transcript_and_timestamped_segments(
     tmp_path: Path,
 ) -> None:
@@ -247,6 +264,65 @@ def test_replace_transcript_replaces_failed_attempt_for_same_media_file(
             "start_seconds": 1.0,
             "end_seconds": 12.5,
             "text": "final",
+        }
+    ]
+
+
+def test_replace_transcript_preserves_existing_transcript_when_segment_insert_fails(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "self_talk_coach.sqlite"
+
+    with connect(db_path) as conn:
+        init_db(conn)
+        media_id = insert_test_media(conn)
+        original_transcript_id = replace_transcript(
+            conn,
+            media_file_id=media_id,
+            language="en",
+            model="whisper-test",
+            duration_seconds=12.5,
+            status=TranscriptStatus.COMPLETED,
+            error_message=None,
+            segments=[
+                {"start_seconds": 0.0, "end_seconds": 12.5, "text": "original"},
+            ],
+        )
+
+        with pytest.raises(KeyError):
+            replace_transcript(
+                conn,
+                media_file_id=media_id,
+                language="en",
+                model="whisper-test",
+                duration_seconds=12.5,
+                status=TranscriptStatus.FAILED,
+                error_message="bad segment",
+                segments=[
+                    {"start_seconds": 0.0, "end_seconds": 12.5},
+                ],
+            )
+        conn.commit()
+
+        transcript = get_transcript_by_media_file_id(conn, media_id)
+        segments = conn.execute(
+            """
+            SELECT transcript_id, start_seconds, end_seconds, text
+            FROM transcript_segments
+            ORDER BY id
+            """
+        ).fetchall()
+
+    assert transcript is not None
+    assert transcript["id"] == original_transcript_id
+    assert transcript["status"] == TranscriptStatus.COMPLETED.value
+    assert transcript["error_message"] is None
+    assert [dict(segment) for segment in segments] == [
+        {
+            "transcript_id": original_transcript_id,
+            "start_seconds": 0.0,
+            "end_seconds": 12.5,
+            "text": "original",
         }
     ]
 
