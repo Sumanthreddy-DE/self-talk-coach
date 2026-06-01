@@ -8,6 +8,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from self_talk_coach.paths import AppPaths
+
 
 class TranscriptExportFormat(StrEnum):
     JSON = "json"
@@ -18,10 +20,10 @@ def list_completed_transcripts(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return conn.execute(
         """
         SELECT
-            transcripts.id AS id,
+            transcripts.id AS transcript_id,
             transcripts.media_file_id AS media_file_id,
-            transcripts.language AS language,
-            transcripts.model AS model,
+            transcripts.language AS transcript_language,
+            transcripts.model AS transcript_model,
             transcripts.duration_seconds AS transcript_duration_seconds,
             transcripts.status AS transcript_status,
             transcripts.created_at AS transcript_created_at,
@@ -61,11 +63,11 @@ def export_stem(row: sqlite3.Row) -> str:
         stem = Path(managed_path).stem
         if stem:
             return stem
-    return f"transcript-{row['id']}"
+    return f"transcript-{row['transcript_id']}"
 
 
 def transcript_payload(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
-    segments = list_segments(conn, int(row["id"]))
+    segments = list_segments(conn, int(row["transcript_id"]))
     return {
         "media": {
             "id": row["media_file_id"],
@@ -80,9 +82,9 @@ def transcript_payload(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, 
             "status": row["media_status"],
         },
         "transcript": {
-            "id": row["id"],
-            "language": row["language"],
-            "model": row["model"],
+            "id": row["transcript_id"],
+            "language": row["transcript_language"],
+            "model": row["transcript_model"],
             "duration_seconds": row["transcript_duration_seconds"],
             "status": row["transcript_status"],
             "created_at": row["transcript_created_at"],
@@ -144,9 +146,9 @@ def write_markdown_export(
 
 def export_all_transcripts(
     conn: sqlite3.Connection,
-    paths,
+    paths: AppPaths,
     *,
-    export_format: TranscriptExportFormat,
+    export_format: TranscriptExportFormat | str,
 ) -> list[Path]:
     try:
         selected_format = TranscriptExportFormat(export_format)
@@ -155,7 +157,7 @@ def export_all_transcripts(
 
     destination = paths.exports_transcripts
     destination.mkdir(parents=True, exist_ok=True)
-    exported_paths = []
+    exported_paths: list[Path] = []
     for row in list_completed_transcripts(conn):
         if selected_format is TranscriptExportFormat.JSON:
             exported_paths.append(write_json_export(conn, row, destination))

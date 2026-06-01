@@ -14,8 +14,8 @@ def test_import_stubs() -> None:
         ingest,
         mine,
         paths,
-        transcript_export,
         transcribe,
+        transcript_export,
     )
 
 

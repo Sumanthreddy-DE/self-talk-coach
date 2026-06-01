@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -9,11 +10,12 @@ from self_talk_coach.paths import AppPaths
 from self_talk_coach.transcript_export import (
     TranscriptExportFormat,
     export_all_transcripts,
+    list_completed_transcripts,
 )
 
 
 def insert_media(
-    conn,
+    conn: sqlite3.Connection,
     *,
     original_filename: str = "daily.mp4",
     managed_path: str = "data/media/processed/2026/05/daily.mp4",
@@ -33,9 +35,9 @@ def insert_media(
     )
 
 
-def create_completed_transcript(conn) -> int:
+def create_completed_transcript(conn: sqlite3.Connection) -> tuple[int, int]:
     media_id = insert_media(conn)
-    return replace_transcript(
+    transcript_id = replace_transcript(
         conn,
         media_file_id=media_id,
         language="de",
@@ -47,6 +49,24 @@ def create_completed_transcript(conn) -> int:
             {"start_seconds": 0.0, "end_seconds": 1.0, "text": "Hallo."},
         ],
     )
+    return media_id, transcript_id
+
+
+def test_list_completed_transcripts_uses_explicit_transcript_aliases(
+    tmp_path: Path,
+) -> None:
+    paths = AppPaths.from_data_root(tmp_path / "data")
+
+    with connect(paths.db_path) as conn:
+        init_db(conn)
+        _, transcript_id = create_completed_transcript(conn)
+
+        row = list_completed_transcripts(conn)[0]
+
+    assert row["transcript_id"] == transcript_id
+    assert "id" not in row.keys()
+    assert "language" not in row.keys()
+    assert "model" not in row.keys()
 
 
 def test_export_all_transcripts_writes_completed_transcript_json(tmp_path: Path) -> None:
@@ -54,22 +74,47 @@ def test_export_all_transcripts_writes_completed_transcript_json(tmp_path: Path)
 
     with connect(paths.db_path) as conn:
         init_db(conn)
-        create_completed_transcript(conn)
+        media_id, transcript_id = create_completed_transcript(conn)
+        transcript = conn.execute(
+            "SELECT created_at FROM transcripts WHERE id = ?",
+            (transcript_id,),
+        ).fetchone()
 
         exported_paths = export_all_transcripts(
             conn,
-            paths,
-            export_format=TranscriptExportFormat.JSON,
+            paths=paths,
+            export_format="json",
         )
 
     assert exported_paths == [paths.exports_transcripts / "daily.json"]
     payload = json.loads(exported_paths[0].read_text(encoding="utf-8"))
-    assert payload["media"]["original_filename"] == "daily.mp4"
-    assert payload["transcript"]["language"] == "de"
-    assert payload["transcript"]["model"] == "whisper-test"
-    assert payload["segments"] == [
-        {"start_seconds": 0.0, "end_seconds": 1.0, "text": "Hallo."},
-    ]
+    assert transcript is not None
+    assert payload == {
+        "media": {
+            "id": media_id,
+            "original_filename": "daily.mp4",
+            "original_path": "data/media/inbox/daily.mp4",
+            "managed_path": "data/media/processed/2026/05/daily.mp4",
+            "content_hash": "daily-hash",
+            "size_bytes": 128,
+            "duration_seconds": 1.0,
+            "inferred_session_at": "2026-05-31T21:30:00+00:00",
+            "date_confidence": "medium",
+            "status": "transcribed",
+        },
+        "transcript": {
+            "id": transcript_id,
+            "language": "de",
+            "model": "whisper-test",
+            "duration_seconds": 1.0,
+            "status": "completed",
+            "created_at": transcript["created_at"],
+            "error_message": None,
+        },
+        "segments": [
+            {"start_seconds": 0.0, "end_seconds": 1.0, "text": "Hallo."},
+        ],
+    }
 
 
 def test_export_all_transcripts_writes_completed_transcript_markdown(
@@ -79,7 +124,7 @@ def test_export_all_transcripts_writes_completed_transcript_markdown(
 
     with connect(paths.db_path) as conn:
         init_db(conn)
-        create_completed_transcript(conn)
+        media_id, transcript_id = create_completed_transcript(conn)
 
         exported_paths = export_all_transcripts(
             conn,
@@ -89,9 +134,18 @@ def test_export_all_transcripts_writes_completed_transcript_markdown(
 
     assert exported_paths == [paths.exports_transcripts / "daily.md"]
     markdown = exported_paths[0].read_text(encoding="utf-8")
-    assert "# daily.mp4" in markdown
-    assert "Model: whisper-test" in markdown
-    assert "[0.00 - 1.00] Hallo." in markdown
+    assert (
+        markdown
+        == f"""# daily.mp4
+
+Language: de
+Model: whisper-test
+Transcript ID: {transcript_id}
+Media ID: {media_id}
+
+[0.00 - 1.00] Hallo.
+"""
+    )
 
 
 def test_export_all_transcripts_skips_failed_transcripts(tmp_path: Path) -> None:
