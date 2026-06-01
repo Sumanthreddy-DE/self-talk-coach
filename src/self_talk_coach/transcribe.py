@@ -68,3 +68,6 @@ def extract_audio(source_path: Path, destination_path: Path) -> None:
         subprocess.run(command, check=True, capture_output=True, text=True)
     except FileNotFoundError as exc:
         raise RuntimeError("ffmpeg unavailable") from exc
+    except subprocess.CalledProcessError as exc:
+        details = exc.stderr or f"exit code {exc.returncode}"
+        raise RuntimeError(f"ffmpeg audio extraction failed: {details}") from exc

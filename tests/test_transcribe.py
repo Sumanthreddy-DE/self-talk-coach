@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -59,4 +60,25 @@ def test_extract_audio_reports_unavailable_ffmpeg(
     monkeypatch.setattr("self_talk_coach.transcribe.subprocess.run", fake_run)
 
     with pytest.raises(RuntimeError, match="ffmpeg unavailable"):
+        extract_audio(source, destination)
+
+
+def test_extract_audio_reports_ffmpeg_stderr_on_failed_extraction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "session.mp4"
+    destination = tmp_path / "audio" / "session.wav"
+
+    def fake_run(
+        command: list[str], *, check: bool, capture_output: bool, text: bool
+    ) -> None:
+        raise subprocess.CalledProcessError(
+            returncode=1, cmd=command, stderr="bad media"
+        )
+
+    monkeypatch.setattr("self_talk_coach.transcribe.subprocess.run", fake_run)
+
+    with pytest.raises(
+        RuntimeError, match="ffmpeg audio extraction failed: bad media"
+    ):
         extract_audio(source, destination)
