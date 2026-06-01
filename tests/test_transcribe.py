@@ -1,7 +1,7 @@
-import sys
 import subprocess
-from types import SimpleNamespace
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
