@@ -8,7 +8,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from self_talk_coach.domain import TranscriptionOutcome
+from self_talk_coach.db import (
+    get_transcript_by_media_file_id,
+    list_media_files_for_transcription,
+    replace_transcript,
+    update_media_file_status,
+)
+from self_talk_coach.domain import (
+    MediaStatus,
+    TranscriptStatus,
+    TranscriptionOutcome,
+)
+from self_talk_coach.paths import AppPaths
 
 
 @dataclass(frozen=True)
@@ -123,3 +134,113 @@ def extract_audio(source_path: Path, destination_path: Path) -> None:
     except subprocess.CalledProcessError as exc:
         details = exc.stderr or f"exit code {exc.returncode}"
         raise RuntimeError(f"ffmpeg audio extraction failed: {details}") from exc
+
+
+def audio_path_for(paths: AppPaths, media_file_id: int) -> Path:
+    return paths.media_processing / f"media-{media_file_id}.wav"
+
+
+def _transcriber_model_name(transcriber: Transcriber) -> str:
+    return str(getattr(transcriber, "model_name", type(transcriber).__name__))
+
+
+def transcribe_media_file(
+    conn: Any,
+    paths: AppPaths,
+    media_row: Any,
+    *,
+    transcriber: Transcriber,
+    audio_extractor: AudioExtractor = extract_audio,
+) -> TranscriptionRunResult:
+    media_file_id = int(media_row["id"])
+    existing_transcript = get_transcript_by_media_file_id(conn, media_file_id)
+    if (
+        existing_transcript is not None
+        and existing_transcript["status"] == TranscriptStatus.COMPLETED.value
+    ):
+        return TranscriptionRunResult(
+            media_file_id=media_file_id,
+            outcome=TranscriptionOutcome.SKIPPED,
+            transcript_id=int(existing_transcript["id"]),
+        )
+
+    audio_path = audio_path_for(paths, media_file_id)
+    try:
+        managed_path = Path(media_row["managed_path"])
+        if not managed_path.exists():
+            raise FileNotFoundError(
+                f"managed media path does not exist: {managed_path}"
+            )
+
+        audio_extractor(managed_path, audio_path)
+        draft = transcriber.transcribe(audio_path)
+        transcript_id = replace_transcript(
+            conn,
+            media_file_id=media_file_id,
+            language=draft.language,
+            model=_transcriber_model_name(transcriber),
+            duration_seconds=draft.duration_seconds,
+            status=TranscriptStatus.COMPLETED,
+            error_message=None,
+            segments=[segment.as_storage_dict() for segment in draft.segments],
+        )
+        update_media_file_status(
+            conn,
+            media_file_id=media_file_id,
+            status=MediaStatus.TRANSCRIBED,
+            error_message=None,
+        )
+        conn.commit()
+        return TranscriptionRunResult(
+            media_file_id=media_file_id,
+            outcome=TranscriptionOutcome.TRANSCRIBED,
+            transcript_id=transcript_id,
+        )
+    except Exception as exc:
+        conn.rollback()
+        error_message = str(exc)
+        transcript_id = replace_transcript(
+            conn,
+            media_file_id=media_file_id,
+            language="de",
+            model=_transcriber_model_name(transcriber),
+            duration_seconds=None,
+            status=TranscriptStatus.FAILED,
+            error_message=error_message,
+            segments=[],
+        )
+        update_media_file_status(
+            conn,
+            media_file_id=media_file_id,
+            status=MediaStatus.FAILED,
+            error_message=error_message,
+        )
+        conn.commit()
+        return TranscriptionRunResult(
+            media_file_id=media_file_id,
+            outcome=TranscriptionOutcome.FAILED,
+            transcript_id=transcript_id,
+            error_message=error_message,
+        )
+    finally:
+        audio_path.unlink(missing_ok=True)
+
+
+def transcribe_pending(
+    conn: Any,
+    paths: AppPaths,
+    *,
+    transcriber: Transcriber,
+    audio_extractor: AudioExtractor = extract_audio,
+) -> list[TranscriptionRunResult]:
+    paths.ensure_workspace()
+    return [
+        transcribe_media_file(
+            conn,
+            paths,
+            media_row,
+            transcriber=transcriber,
+            audio_extractor=audio_extractor,
+        )
+        for media_row in list_media_files_for_transcription(conn)
+    ]
