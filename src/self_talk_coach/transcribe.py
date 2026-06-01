@@ -6,6 +6,7 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from self_talk_coach.domain import TranscriptionOutcome
 
@@ -42,6 +43,57 @@ class TranscriptionRunResult:
 class Transcriber:
     def transcribe(self, audio_path: Path) -> TranscriptDraft:
         raise NotImplementedError
+
+
+class FasterWhisperTranscriber(Transcriber):
+    def __init__(
+        self,
+        model_size: str = "medium",
+        device: str = "cpu",
+        compute_type: str = "int8",
+    ) -> None:
+        self.model_size = model_size
+        self.device = device
+        self.compute_type = compute_type
+        self._model: Any | None = None
+
+    @property
+    def model_name(self) -> str:
+        return (
+            f"faster-whisper:{self.model_size}:{self.device}:"
+            f"{self.compute_type}"
+        )
+
+    def _load_model(self) -> Any:
+        if self._model is None:
+            from faster_whisper import WhisperModel
+
+            self._model = WhisperModel(
+                self.model_size,
+                device=self.device,
+                compute_type=self.compute_type,
+            )
+        return self._model
+
+    def transcribe(self, audio_path: Path) -> TranscriptDraft:
+        model = self._load_model()
+        segments, info = model.transcribe(
+            str(audio_path), language="de", vad_filter=True
+        )
+        segment_drafts = tuple(
+            TranscriptSegmentDraft(
+                start_seconds=segment.start,
+                end_seconds=segment.end,
+                text=text,
+            )
+            for segment in segments
+            if (text := segment.text.strip())
+        )
+        return TranscriptDraft(
+            language=getattr(info, "language", None) or "de",
+            duration_seconds=getattr(info, "duration", None),
+            segments=segment_drafts,
+        )
 
 
 AudioExtractor = Callable[[Path, Path], None]
