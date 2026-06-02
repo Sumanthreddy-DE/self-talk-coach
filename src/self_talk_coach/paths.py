@@ -13,7 +13,7 @@ class AppPaths:
     data_root: Path
 
     @classmethod
-    def from_data_root(cls, data_root: Path | str = "data") -> "AppPaths":
+    def from_data_root(cls, data_root: Path | str = "data") -> AppPaths:
         return cls(Path(data_root))
 
     @property

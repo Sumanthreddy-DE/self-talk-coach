@@ -1,6 +1,6 @@
+import sqlite3
 import subprocess
 import sys
-import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,8 +17,8 @@ from self_talk_coach.paths import AppPaths
 from self_talk_coach.transcribe import (
     FasterWhisperTranscriber,
     TranscriptDraft,
-    TranscriptSegmentDraft,
     TranscriptionRunResult,
+    TranscriptSegmentDraft,
     audio_path_for,
     extract_audio,
     transcribe_pending,

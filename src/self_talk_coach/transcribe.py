@@ -16,8 +16,8 @@ from self_talk_coach.db import (
 )
 from self_talk_coach.domain import (
     MediaStatus,
-    TranscriptStatus,
     TranscriptionOutcome,
+    TranscriptStatus,
 )
 from self_talk_coach.paths import AppPaths
 
