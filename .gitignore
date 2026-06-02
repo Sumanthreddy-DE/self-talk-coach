@@ -7,6 +7,7 @@ dist/
 build/
 .pytest_cache/
 .ruff_cache/
+.test-tmp/
 .venv/
 venv/
 .worktrees/
