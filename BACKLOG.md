@@ -24,7 +24,6 @@ _(none yet)_
 
 ## Open — S2 (UX gap, polish, deferred decisions)
 
-- transcription-storage - Implement ffmpeg/faster-whisper transcription into SQLite transcripts and transcript_segments tables.
 - first-language-analysis - Generate pending correction and upgrade candidates from stored transcript segments.
 - review-queue - Add commands to list, show, approve, reject, and defer learning candidates.
 
@@ -42,9 +41,9 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ---
 
-## Done this session (2026-05-28)
+## Done this session (2026-06-01)
 
-_(none yet — items move here on close, sweep to Archived at end of session.)_
+- transcription-storage - Planned and implemented ffmpeg/faster-whisper transcription into SQLite transcripts and transcript_segments tables.
 
 ---
 

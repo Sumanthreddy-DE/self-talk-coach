@@ -35,6 +35,9 @@ cp .env.example .env
 stc init
 # Put daily German self-talk videos into data/media/inbox/
 stc import
+stc transcribe
+stc export transcripts --format json
+stc export transcripts --format markdown
 
 # Optional: Mit synthetischem Beispiel testen (kein echtes Audio nötig)
 stc mine samples/

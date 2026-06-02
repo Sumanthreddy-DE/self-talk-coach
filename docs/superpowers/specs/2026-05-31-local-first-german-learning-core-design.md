@@ -307,6 +307,8 @@ Implementation status: planned in `docs/superpowers/plans/2026-05-31-local-db-me
 
 ### Milestone 2: Transcription Storage
 
+Implementation status: planned in `docs/superpowers/plans/2026-06-01-transcription-storage.md`; completed when `stc transcribe`, transcript storage tests, and transcript export tests pass the full test suite.
+
 - Extract audio with ffmpeg.
 - Transcribe with faster-whisper.
 - Force German transcription.
