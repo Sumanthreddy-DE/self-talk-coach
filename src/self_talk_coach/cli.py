@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 import typer
 
@@ -41,7 +42,9 @@ def info() -> None:
 
 @app.command("init")
 def init_command(
-    data_root: Path = typer.Option(Path("data"), "--data-root", help="Application data root."),
+    data_root: Annotated[
+        Path, typer.Option("--data-root", help="Application data root.")
+    ] = Path("data"),
 ) -> None:
     """Initialize local database and managed media folders."""
     paths = AppPaths.from_data_root(data_root)
@@ -53,7 +56,9 @@ def init_command(
 
 @app.command("import")
 def import_command(
-    data_root: Path = typer.Option(Path("data"), "--data-root", help="Application data root."),
+    data_root: Annotated[
+        Path, typer.Option("--data-root", help="Application data root.")
+    ] = Path("data"),
 ) -> None:
     """Import videos from the managed inbox into the local media library."""
     paths = AppPaths.from_data_root(data_root)
@@ -73,10 +78,18 @@ def import_command(
 
 @app.command("transcribe")
 def transcribe_command(
-    data_root: Path = typer.Option(Path("data"), "--data-root", help="Application data root."),
-    model_size: str = typer.Option("medium", "--model-size", help="Faster Whisper model size."),
-    device: str = typer.Option("cpu", "--device", help="Transcription device."),
-    compute_type: str = typer.Option("int8", "--compute-type", help="Transcription compute type."),
+    data_root: Annotated[
+        Path, typer.Option("--data-root", help="Application data root.")
+    ] = Path("data"),
+    model_size: Annotated[
+        str, typer.Option("--model-size", help="Faster Whisper model size.")
+    ] = "medium",
+    device: Annotated[
+        str, typer.Option("--device", help="Transcription device.")
+    ] = "cpu",
+    compute_type: Annotated[
+        str, typer.Option("--compute-type", help="Transcription compute type.")
+    ] = "int8",
 ) -> None:
     """Transcribe imported media files into stored transcripts."""
     paths = AppPaths.from_data_root(data_root)
@@ -112,12 +125,13 @@ def transcribe_command(
 
 @export_app.command("transcripts")
 def export_transcripts_command(
-    data_root: Path = typer.Option(Path("data"), "--data-root", help="Application data root."),
-    export_format: TranscriptExportFormat = typer.Option(
-        TranscriptExportFormat.JSON,
-        "--format",
-        help="Transcript export format.",
-    ),
+    data_root: Annotated[
+        Path, typer.Option("--data-root", help="Application data root.")
+    ] = Path("data"),
+    export_format: Annotated[
+        TranscriptExportFormat,
+        typer.Option("--format", help="Transcript export format."),
+    ] = TranscriptExportFormat.JSON,
 ) -> None:
     """Export stored transcripts."""
     paths = AppPaths.from_data_root(data_root)

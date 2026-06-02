@@ -89,12 +89,10 @@ def test_cli_transcribe_stores_imported_media_transcript(
     monkeypatch.setattr(
         "self_talk_coach.cli.FasterWhisperTranscriber",
         FakeCliTranscriber,
-        raising=False,
     )
     monkeypatch.setattr(
         "self_talk_coach.cli.extract_audio",
         fake_cli_audio_extractor,
-        raising=False,
     )
 
     result = runner.invoke(
@@ -127,12 +125,10 @@ def test_cli_export_transcripts_writes_markdown_export(
     monkeypatch.setattr(
         "self_talk_coach.cli.FasterWhisperTranscriber",
         FakeCliTranscriber,
-        raising=False,
     )
     monkeypatch.setattr(
         "self_talk_coach.cli.extract_audio",
         fake_cli_audio_extractor,
-        raising=False,
     )
     transcribe_result = runner.invoke(
         app,
