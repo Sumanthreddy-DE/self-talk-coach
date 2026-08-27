@@ -1,6 +1,6 @@
 # Blueprint: self-talk-coach (V1 Weekend MVP)
 
-**Project root:** `C:/Users/suman/Desktop/Docs/Job/Projects/Myself/self-talk-coach/`
+**Project root:** `C:/Users/suman/Desktop/Docs/Job/Projects/self-talk-coach/`
 **Objective:** Python CLI that ingests German self-talk video files → transcribes (faster-whisper) → mines unknown vocab vs Goethe-B1 baseline (spaCy) → enriches via Claude API → exports Anki `.apkg`.
 **Scope:** Selfish utility, sole user = Sumanth. Corpus <5h. Private repo, flip public later.
 **Owner:** Sumanth (Sumanthreddy-DE)
@@ -81,7 +81,7 @@ The user's harness helper script is at `~/.claude/scripts/new-project-init.sh` a
 
 ### Tasks
 
-1. Create dir `C:/Users/suman/Desktop/Docs/Job/Projects/Myself/self-talk-coach/`
+1. Create dir `C:/Users/suman/Desktop/Docs/Job/Projects/self-talk-coach/`
 2. Run `bash ~/.claude/scripts/new-project-init.sh self-talk-coach` from inside the new dir (creates ARCHITECTURE.md, BACKLOG.md, SESSION-END.md, docs/exec-plans/, Archive/, etc.)
 3. Move this blueprint file to `docs/exec-plans/01-weekend-mvp.md`
 4. Create `pyproject.toml` with **all deps locked at S1** (pyproject is treated as frozen after this step — prevents merge conflicts on S2∥S3):
@@ -112,7 +112,7 @@ The user's harness helper script is at `~/.claude/scripts/new-project-init.sh` a
 ### Verification
 
 ```bash
-cd C:/Users/suman/Desktop/Docs/Job/Projects/Myself/self-talk-coach
+cd C:/Users/suman/Desktop/Docs/Job/Projects/self-talk-coach
 test -f pyproject.toml && test -f README.md && test -f BACKLOG.md && test -d docs/exec-plans && test -f docs/exec-plans/01-weekend-mvp.md
 test -f docs/adr/0001-faster-whisper-over-openai-whisper.md
 ffmpeg -version | head -1    # system dep must be on PATH
@@ -164,7 +164,7 @@ Whisper hallucinates on silence — apply VAD filter (`vad_filter=True` in faste
 
 **Automated (must pass):**
 ```bash
-cd C:/Users/suman/Desktop/Docs/Job/Projects/Myself/self-talk-coach
+cd C:/Users/suman/Desktop/Docs/Job/Projects/self-talk-coach
 .venv/Scripts/python -m pytest -q tests/test_ingest.py tests/test_transcribe.py
 ```
 
@@ -483,7 +483,7 @@ Per global rules:
 4. Verify working tree clean: `git status` → nothing to commit
 5. **Hand-off to user** — print this exact block as the deliverable:
    ```
-   ! git -C "C:/Users/suman/Desktop/Docs/Job/Projects/Myself/self-talk-coach" push -u origin main
+   ! git -C "C:/Users/suman/Desktop/Docs/Job/Projects/self-talk-coach" push -u origin main
    ```
 6. After user pushes, verify: `git fetch && git rev-list --left-right --count main...origin/main` → expect `0 0`
 7. **Do NOT** modify `Sumanthreddy-DE/Sumanthreddy-DE` profile README pin list — repo is private, must not appear in pins until a future "go public" plan explicitly handles the flip. Profile pin set stays at current six (per memory `project_github-profile.md`).
