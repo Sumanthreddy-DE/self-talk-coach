@@ -1,5 +1,9 @@
 # First Language Analysis Implementation Plan
 
+**Status:** paused
+**Last verified:** 2026-09-28
+**Status evidence:** not started - no analyze.py, no CandidateType, no analyze command; plan only (5f7670a). Project paused 2026-09-28 by owner
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build Milestone 3: generate pending vocabulary, phrase-upgrade, and basic-correction learning candidates from stored transcript segments, with every candidate linked to a transcript segment.

@@ -1,5 +1,9 @@
 # Local DB Media Library Implementation Plan
 
+**Status:** done
+**Last verified:** 2026-09-28
+**Status evidence:** paths.py, db.py, ingest.py import_inbox, cli init/import all present; commits 74bb4a2..f5f04e1 (2026-05-31)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build Milestone 1: initialize the local SQLite database, create the managed media folders, and import inbox videos into an organized local media library.

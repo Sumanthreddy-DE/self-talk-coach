@@ -1,5 +1,9 @@
 # Transcription Storage Implementation Plan
 
+**Status:** done
+**Last verified:** 2026-09-28
+**Status evidence:** transcribe.py FasterWhisperTranscriber + transcribe_pending, transcript_export.py, cli transcribe/export present; commits 0e55ec4..74bf901 (2026-06-01/02)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build Milestone 2: transcribe imported German self-talk media, store one durable transcript with timestamped segments per media file, skip completed work on rerun, and export transcripts for inspection.
