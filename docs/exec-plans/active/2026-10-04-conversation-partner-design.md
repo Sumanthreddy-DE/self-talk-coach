@@ -79,7 +79,7 @@ Each module has one job and is testable with fakes.
 - **No flattery**: no "Super!", "Toll gemacht!", no praise after answers (research: AI partners read as "sycophantic and corporate").
 - Language level: B1, occasional slight stretch. Measured, not enforced (see Metrics).
 - Next question topic comes from the code-picked seed ("ask about X — as a natural follow-up or a sudden topic jump"); Claude phrases it, does not choose it.
-- Learner profile (B1, lives Reutlingen, late shifts at McDonald's Mössingen, job-interview goal) + last conversation's summary in the cached system prompt. Profile lives in `.env`-configured file outside the repo (PII).
+- Learner profile (B1, lives Reutlingen, late shifts at McDonald's Mössingen, job-interview goal) + last conversation's summary in the cached system prompt. Profile lives in `data/learner-profile.md` (gitignored, never committed — PII; repo is planned to go public).
 
 ### Question banks
 
@@ -154,7 +154,7 @@ Each is a throwaway script under `scripts/spikes/` with results written into thi
 
 ## Configuration (`.env`, never committed)
 
-`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `STC_TTS_VOICE`, `STC_LIVE_STT_MODEL`, `STC_QUESTION_BANKS`, `STC_LEARNER_PROFILE`, `STC_LADDER_SECONDS=4,8,12`. `.env.example` gains these names with empty values.
+`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`, `STC_TTS_VOICE`, `STC_LIVE_STT_MODEL`, `STC_QUESTION_BANKS`, `STC_LADDER_SECONDS=4,8,12`. `.env.example` gains these names with empty values.
 
 ## Open after v1
 
