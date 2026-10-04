@@ -37,6 +37,12 @@ dev = [
     "pytest-mock>=3.12",
     "ruff>=0.5",
 ]
+spike = [
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12",
+    "azure-cognitiveservices-speech>=1.38",
+    "openai>=1.40",
+]
 
 [project.scripts]
 stc = "self_talk_coach.cli:app"
