@@ -55,7 +55,21 @@ def azure_stt(path: Path) -> str:
     return " ".join(parts)
 
 
-ENGINES = {"large-v3": whisper_large, "azure": azure_stt}
+def deepgram_stt(path: Path) -> str:
+    import requests
+
+    resp = requests.post(
+        "https://api.deepgram.com/v1/listen",
+        params={"model": "nova-3", "language": "de", "punctuate": "true", "smart_format": "false"},
+        headers={"Authorization": f"Token {os.environ['DEEPGRAM_API_KEY']}", "Content-Type": "audio/wav"},
+        data=path.read_bytes(),
+        timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.json()["results"]["channels"][0]["alternatives"][0]["transcript"]
+
+
+ENGINES = {"large-v3": whisper_large, "azure": azure_stt, "deepgram": deepgram_stt}
 
 
 def main() -> None:
