@@ -34,6 +34,7 @@ from self_talk_coach.paths import AppPaths
 PARDON = "Wie bitte? Kannst du das nochmal sagen?"
 MIN_SPEECH_SECONDS = 0.4
 POLL_SECONDS = 0.05
+MAX_RECORD_SECONDS = 60.0
 
 
 class Clock(Protocol):
@@ -43,6 +44,7 @@ class Clock(Protocol):
 
 class KeyInput(Protocol):
     def poll(self) -> str | None: ...
+    def flush(self) -> None: ...
 
 
 class Recorder(Protocol):
@@ -71,6 +73,7 @@ class SessionDeps:
     now_iso: Callable[[], str]
     store_audio: Callable[[bytes, Path], None] = encode_opus
     out: Callable[[str], None] = print
+    status: Callable[[str], None] = print
 
 
 @dataclass
@@ -150,7 +153,7 @@ class ConversationSession:
     def _speak_and_store_partner(self) -> int:
         d, s = self._d, self._s
         assert s.reply is not None
-        d.player.play(s.audio)
+        self._play(s.audio)
         index = self._next_index()
         audio_path = self._store(s.audio, index, "partner")
         return insert_turn(
@@ -172,6 +175,7 @@ class ConversationSession:
         d, s = self._d, self._s
         assert s.reply is not None
         spoken = s.reply.turn.spoken_text()
+        d.status("[Du bist dran] SPACE = sprechen · r = nochmal · s = langsamer · t = Text · q = Ende")
         started = d.clock.now()
         while True:
             key = d.keys.poll()
@@ -183,10 +187,10 @@ class ConversationSession:
                 return
             if key == "r":
                 window.replay += 1
-                d.player.play(s.audio)
+                self._play(s.audio)
             elif key == "s":
                 window.slower += 1
-                d.player.play(d.voice.synthesize(spoken, slower=True))
+                self._play(d.voice.synthesize(spoken, slower=True))
             elif key == "t":
                 window.show_text += 1
                 d.out(f"Partner: {spoken}")
@@ -195,7 +199,7 @@ class ConversationSession:
                 window.ladder_step = int(target)
                 helper = self._helper_text(target)
                 if helper:
-                    d.player.play(d.voice.synthesize(helper))
+                    self._play(d.voice.synthesize(helper))
             d.clock.sleep(POLL_SECONDS)
 
     def _helper_text(self, step: LadderStep) -> str:
@@ -214,16 +218,19 @@ class ConversationSession:
     def _record_and_transcribe(self, freeze_seconds: float | None) -> LearnerTranscript | None:
         d, s = self._d, self._s
         d.recorder.start()
-        while d.keys.poll() != " ":
+        d.status("[Aufnahme] ... SPACE = Stopp")
+        record_started = d.clock.now()
+        while d.keys.poll() != " " and d.clock.now() - record_started < MAX_RECORD_SECONDS:
             d.clock.sleep(POLL_SECONDS)
         samples = d.recorder.stop()
+        d.status("[...] Partner denkt nach")
         if len(samples) < MIN_SPEECH_SECONDS * SAMPLE_RATE:
-            d.player.play(d.voice.synthesize(PARDON))
+            self._play(d.voice.synthesize(PARDON))
             return None
         audio = wav_bytes(samples)
         transcript = self._transcribe_with_retry(audio)
         if transcript is None or not transcript.text.strip():
-            d.player.play(d.voice.synthesize(PARDON))
+            self._play(d.voice.synthesize(PARDON))
             return None
         index = self._next_index()
         audio_path = self._store(audio, index, "learner")
@@ -249,6 +256,11 @@ class ConversationSession:
         return None
 
     # --- helpers -------------------------------------------------------------
+
+    def _play(self, audio: bytes) -> None:
+        """Play partner audio, then drop keys pressed meanwhile so they cannot flip the SPACE toggle."""
+        self._d.player.play(audio)
+        self._d.keys.flush()
 
     def _next_index(self) -> int:
         index = self._s.turn_index

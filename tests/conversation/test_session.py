@@ -36,6 +36,10 @@ class FakeKeys:
             return self.script.pop(0)[1]
         return None
 
+    def flush(self) -> None:
+        while self.script and self.script[0][0] <= self.clock.now():
+            self.script.pop(0)
+
 
 class FakeRecorder:
     def __init__(self, seconds: list[float]) -> None:
@@ -120,6 +124,7 @@ def _deps(tmp_path: Path, keys_script, recordings, texts, replies):
         rng=random.Random(0),
         store_audio=lambda audio, dest: stored.append(dest),
         out=out.append,
+        status=lambda line: None,
         now_iso=lambda: "2026-10-05T20:00:00+00:00",
     )
     return deps, conn, player, stored, out
@@ -209,3 +214,38 @@ def test_keyboard_interrupt_marks_aborted(tmp_path: Path) -> None:
     cid = ConversationSession(deps, scenario=None, llm_label="x").run()
     assert get_conversation(conn, cid)["status"] == "aborted"
     assert len(list_turns(conn, cid)) == 1
+
+
+class TimedPlayer(FakePlayer):
+    """Playback takes real (fake-clock) time, like sd.play + sd.wait."""
+
+    def __init__(self, clock: FakeClock, seconds_per_play: float) -> None:
+        super().__init__()
+        self.clock = clock
+        self.seconds = seconds_per_play
+
+    def play(self, audio: bytes) -> None:
+        super().play(audio)
+        self.clock.t = round(self.clock.t + self.seconds, 6)
+
+
+def test_space_pressed_while_partner_speaks_is_ignored(tmp_path: Path) -> None:
+    # Partner audio plays 0-3 s. SPACE at 1.0 s is pressed DURING playback and must be dropped,
+    # otherwise it silently starts a recording and the learner's next SPACE stops it (the bug).
+    deps, conn, _, _, _ = _deps(
+        tmp_path,
+        keys_script=[(1.0, " "), (4.0, " "), (6.0, " "), (12.0, "q")],
+        recordings=[2.0],
+        texts=["Ich wohne in Reutlingen."],
+        replies=[_reply("Wo wohnst du?"), _reply("Seit wann?")],
+    )
+    deps.player = TimedPlayer(deps.clock, seconds_per_play=3.0)
+    status: list[str] = []
+    deps.status = status.append
+    cid = ConversationSession(deps, scenario=None, llm_label="x").run()
+
+    turns = list_turns(conn, cid)
+    assert [t["speaker"] for t in turns] == ["partner", "learner", "partner"]
+    assert turns[1]["freeze_seconds"] == 1.0  # wait started at 3.0 s, real SPACE at 4.0 s
+    assert any("Aufnahme" in line for line in status)
+    assert any("dran" in line for line in status)

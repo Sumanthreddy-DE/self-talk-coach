@@ -20,6 +20,10 @@ class ConsoleKeys:
             return msvcrt.getwch().lower()
         return None
 
+    def flush(self) -> None:
+        while msvcrt.kbhit():
+            msvcrt.getwch()
+
 
 class MicRecorder:
     def __init__(self) -> None:
