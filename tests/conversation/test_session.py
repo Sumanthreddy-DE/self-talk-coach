@@ -194,9 +194,13 @@ def test_partner_unavailable_falls_back_to_seed_question(tmp_path: Path) -> None
         keys_script=[(1.0, " "), (3.0, " "), (5.0, "q")],
         recordings=[2.0],
         texts=["Ich wohne in Reutlingen."],
-        replies=[_reply("Wo wohnst du?"), PartnerUnavailable("both down")],
+        replies=[_reply("Wo wohnst du?"), PartnerUnavailable("deepseek: 429 plan expired")],
     )
+    status: list[str] = []
+    deps.status = status.append
     cid = ConversationSession(deps, scenario=None, llm_label="x").run()
+    # the fallback must be visible, with the reason, never silent
+    assert any("nicht erreichbar" in line and "429 plan expired" in line for line in status)
     last = list_turns(conn, cid)[-1]
     assert last["speaker"] == "partner"
     assert last["llm_model"] == "none"
