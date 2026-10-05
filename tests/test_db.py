@@ -51,7 +51,7 @@ def test_init_db_creates_schema_and_is_idempotent(tmp_path: Path) -> None:
             ).fetchall()
         }
 
-    assert user_version == 1
+    assert user_version == 2
     assert {
         "media_files",
         "transcripts",
@@ -59,6 +59,8 @@ def test_init_db_creates_schema_and_is_idempotent(tmp_path: Path) -> None:
         "learning_candidates",
         "practice_items",
         "review_events",
+        "conversations",
+        "turns",
     } <= table_names
 
 

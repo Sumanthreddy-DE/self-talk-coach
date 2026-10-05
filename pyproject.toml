@@ -30,6 +30,10 @@ dependencies = [
     "scipy>=1.11",
     "requests>=2.31",
     "pydantic>=2.6",
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12",
+    "openai>=1.40",
+    "edge-tts>=7.0",
 ]
 
 [project.optional-dependencies]

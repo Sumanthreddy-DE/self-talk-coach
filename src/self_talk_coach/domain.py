@@ -44,3 +44,18 @@ class TranscriptionOutcome(StrEnum):
     TRANSCRIBED = "transcribed"
     SKIPPED = "skipped"
     FAILED = "failed"
+
+
+class ConversationStatus(StrEnum):
+    """Lifecycle state of one live conversation."""
+
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    ABORTED = "aborted"
+
+
+class TurnSpeaker(StrEnum):
+    """Who produced a conversation turn."""
+
+    LEARNER = "learner"
+    PARTNER = "partner"
