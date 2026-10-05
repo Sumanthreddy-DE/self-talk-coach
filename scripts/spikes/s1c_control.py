@@ -55,4 +55,4 @@ def check() -> None:
 
 
 if __name__ == "__main__":
-    {"record": record, "check": check}[sys.argv[1]]()
+    {"record": record, "check": check}[sys.argv[1] if len(sys.argv) > 1 else "record"]()
