@@ -6,8 +6,7 @@ Last swept: 2026-05-28
 
 - **self-talk** – User's own monologue video/audio files. Personal corpus, German, ≤5h total in V1. Casual register, not scripted.
 - **transcript** – Output of Whisper for one source file. JSON with `{source, language, segments[{start, end, text}], duration, model}`. Stored under `data/transcripts/`.
-- **live transcript** – Fast whisper pass on one learner turn during a conversation; feeds the partner's reply. May be wrong; never used for error reporting. _Avoid_: "the transcript" when the pass matters.
-- **review transcript** – Slower, more accurate whisper pass on saved learner audio after the conversation (M2 batch code, word timestamps + confidence). The only source for the session report's error findings.
+- **learner transcript** – Deepgram Nova-3 transcription of one learner turn, with word confidences; feeds both the partner's reply and the session report (single pass — ADR 0005). Keeps learner errors and self-corrections verbatim. _Avoid_: live/review transcript (two-pass design dropped 2026-10-05 after spike S1).
 - **segment** – One contiguous Whisper utterance with start/end timestamps. Used as the unit for vocab provenance.
 - **baseline** – The ~4k-lemma frequency-derived approximate B1 wordlist (wordfreq + spaCy, MIT — not Goethe, for licensing) that defines "already known." Lives in `resources/baseline-de-b1.txt`, one lemma per line, lowercase, UTF-8.
 - **unknown-word / candidate** – A lemma found in a transcript that is NOT in the baseline AND has frequency ≥ 2 across the corpus AND is not a proper noun.
@@ -18,7 +17,7 @@ Last swept: 2026-05-28
 ## Conversation terms (live partner, designed 2026-10-04)
 
 - **conversation** – One live practice session between the learner and the AI partner. Distinct from self-talk. _Avoid_: chat, call, dialogue.
-- **partner** – The AI conversation counterpart (Claude for text, TTS for voice). Never a real human. _Avoid_: bot, tutor, assistant.
+- **partner** – The AI conversation counterpart (an LLM for text — DeepSeek V4 Pro in v1 — and TTS for voice). Never a real human. _Avoid_: bot, tutor, assistant.
 - **turn** – One utterance by either the learner or the partner within a conversation.
 - **scenario card** – A predefined role-play setup (e.g. Vorstellungsgespräch, McDonald's Schicht, Behörde) with goals; "free talk" is a conversation without one.
 - **freeze time** – Seconds from the end of the partner's audio to the learner starting to speak (v1: toggle-key press).
@@ -26,12 +25,12 @@ Last swept: 2026-05-28
 - **rescue phrase** – A German time-buying or clarifying phrase (e.g. "Gute Frage, lass mich kurz überlegen …").
 - **listening aid** – Learner request during a partner turn: replay, slower, or show text. Every use is logged.
 - **recast** – Partner repeats a learner error back in corrected form, in passing, with no explanation.
-- **session report** – Post-conversation summary built from the review transcript: recurring errors, freeze times, rescue phrases, listening-aid use, new words.
+- **session report** – Post-conversation summary built from the learner transcripts: recurring errors, freeze times, rescue phrases, listening-aid use, new words.
 
 Relationships:
 - A **conversation** has many **turns**; each turn belongs to the learner or the partner.
 - A **conversation** uses zero or one **scenario card**.
-- A learner **turn** has one **live transcript** and, after the session, one **review transcript**.
+- A learner **turn** has one **learner transcript**.
 - A **conversation** produces exactly one **session report**.
 
 Boundary: a conversation contains exactly two voices — the learner and the AI partner. Recording any real third person is out of scope (§ 201 StGB rationale below still holds).
