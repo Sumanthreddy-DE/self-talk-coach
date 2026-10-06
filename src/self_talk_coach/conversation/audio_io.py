@@ -20,10 +20,6 @@ class ConsoleKeys:
             return msvcrt.getwch().lower()
         return None
 
-    def flush(self) -> None:
-        while msvcrt.kbhit():
-            msvcrt.getwch()
-
 
 class MicRecorder:
     def __init__(self) -> None:
@@ -52,10 +48,26 @@ class MicRecorder:
 
 
 class SpeakerPlayer:
-    def play(self, audio: bytes) -> None:
+    """Non-blocking playback so keys can be polled (and playback cut) while the partner speaks."""
+
+    def start(self, audio: bytes) -> None:
         samples, samplerate = sf.read(io.BytesIO(audio), dtype="float32")
         sd.play(samples, samplerate)
-        sd.wait()
+
+    def is_playing(self) -> bool:
+        try:
+            return bool(sd.get_stream().active)
+        except RuntimeError:  # no stream yet
+            return False
+
+    def stop(self) -> None:
+        # abort() cuts at once; sd.stop() drains the buffer first (~0.25 s lag on interrupt).
+        try:
+            stream = sd.get_stream()
+        except RuntimeError:
+            return
+        stream.abort()
+        stream.close()
 
 
 class RealClock:

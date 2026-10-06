@@ -35,6 +35,8 @@ PARDON = "Wie bitte? Kannst du das nochmal sagen?"
 MIN_SPEECH_SECONDS = 0.4
 POLL_SECONDS = 0.05
 MAX_RECORD_SECONDS = 60.0
+# Keys that cut playback short; the key is then handled as if pressed while waiting.
+INTERRUPT_KEYS = frozenset({" ", "q", "r", "s"})
 
 
 class Clock(Protocol):
@@ -44,7 +46,6 @@ class Clock(Protocol):
 
 class KeyInput(Protocol):
     def poll(self) -> str | None: ...
-    def flush(self) -> None: ...
 
 
 class Recorder(Protocol):
@@ -53,7 +54,9 @@ class Recorder(Protocol):
 
 
 class Player(Protocol):
-    def play(self, audio: bytes) -> None: ...
+    def start(self, audio: bytes) -> None: ...
+    def is_playing(self) -> bool: ...
+    def stop(self) -> None: ...
 
 
 @dataclass
@@ -103,6 +106,7 @@ class ConversationSession:
         self._scenario = scenario
         self._llm_label = llm_label
         self._s = _State()
+        self._pending_key: str | None = None
 
     def run(self) -> int:
         d = self._d
@@ -118,8 +122,8 @@ class ConversationSession:
         try:
             self._partner_turn(opening=True, learner_text="")
             while True:
-                partner_turn_id = self._speak_and_store_partner()
                 window = _Window()
+                partner_turn_id = self._speak_and_store_partner(window)
                 transcript: LearnerTranscript | None = None
                 while transcript is None and not window.quit:
                     self._wait_for_learner(window)  # after a pardon: same partner turn, fresh timer
@@ -151,10 +155,11 @@ class ConversationSession:
         self._s.reply = reply
         self._s.audio = self._d.voice.synthesize(reply.turn.spoken_text())
 
-    def _speak_and_store_partner(self) -> int:
+    def _speak_and_store_partner(self, window: _Window) -> int:
         d, s = self._d, self._s
         assert s.reply is not None
-        self._play(s.audio)
+        d.status("[Partner spricht] SPACE = unterbrechen · r = nochmal · s = langsamer · t = Text · q = Ende")
+        self._play(s.audio, window)
         index = self._next_index()
         audio_path = self._store(s.audio, index, "partner")
         return insert_turn(
@@ -179,7 +184,7 @@ class ConversationSession:
         d.status("[Du bist dran] SPACE = sprechen · r = nochmal · s = langsamer · t = Text · q = Ende")
         started = d.clock.now()
         while True:
-            key = d.keys.poll()
+            key = self._next_key()
             if key == " ":
                 window.freeze_seconds = round(d.clock.now() - started, 2)
                 return
@@ -188,19 +193,18 @@ class ConversationSession:
                 return
             if key == "r":
                 window.replay += 1
-                self._play(s.audio)
+                self._play(s.audio, window)
             elif key == "s":
                 window.slower += 1
-                self._play(d.voice.synthesize(spoken, slower=True))
+                self._play(d.voice.synthesize(spoken, slower=True), window)
             elif key == "t":
-                window.show_text += 1
-                d.out(f"Partner: {spoken}")
+                self._show_text(window)
             target = step_for(d.clock.now() - started, d.ladder)
             if target > window.ladder_step:
                 window.ladder_step = int(target)
                 helper = self._helper_text(target)
                 if helper:
-                    self._play(d.voice.synthesize(helper))
+                    self._play(d.voice.synthesize(helper), window)
             d.clock.sleep(POLL_SECONDS)
 
     def _helper_text(self, step: LadderStep) -> str:
@@ -258,10 +262,33 @@ class ConversationSession:
 
     # --- helpers -------------------------------------------------------------
 
-    def _play(self, audio: bytes) -> None:
-        """Play partner audio, then drop keys pressed meanwhile so they cannot flip the SPACE toggle."""
-        self._d.player.play(audio)
-        self._d.keys.flush()
+    def _play(self, audio: bytes, window: _Window | None = None) -> None:
+        """Play partner audio while polling keys.
+
+        't' shows the text and playback goes on; an INTERRUPT_KEYS key stops playback and is
+        queued for `_wait_for_learner`. Other keys are dropped. A key pressed as playback ends
+        stays in the buffer for `_wait_for_learner` instead of being flushed away.
+        """
+        d = self._d
+        d.player.start(audio)
+        while d.player.is_playing():
+            key = d.keys.poll()
+            if key == "t" and window is not None:
+                self._show_text(window)
+            elif key in INTERRUPT_KEYS:
+                d.player.stop()
+                self._pending_key = key
+                break
+            d.clock.sleep(POLL_SECONDS)
+
+    def _next_key(self) -> str | None:
+        key, self._pending_key = self._pending_key, None
+        return key if key is not None else self._d.keys.poll()
+
+    def _show_text(self, window: _Window) -> None:
+        assert self._s.reply is not None
+        window.show_text += 1
+        self._d.out(f"Partner: {self._s.reply.turn.spoken_text()}")
 
     def _next_index(self) -> int:
         index = self._s.turn_index

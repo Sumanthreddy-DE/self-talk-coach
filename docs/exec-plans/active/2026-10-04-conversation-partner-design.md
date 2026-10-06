@@ -27,7 +27,7 @@ Terms used below are defined in `CONTEXT.md` (conversation, partner, turn, scena
 - Every turn saved immediately: text, both audio sides (Opus), timings, events.
 - `stc report <id>` (auto-run at conversation end): report-LLM analysis of the stored transcripts → session report; errors land in `learning_candidates`.
 
-**Not in v1:** local LLM/TTS, phone, voice-activity detection, barge-in, voice cloning, Supabase/sync, question banks beyond the existing Myself ones (BACKLOG `question-banks-missing`).
+**Not in v1:** local LLM/TTS, phone, voice-activity detection, voice barge-in (keyboard interrupt during partner speech IS in v1, added 2026-10-06), voice cloning, Supabase/sync, question banks beyond the existing Myself ones (BACKLOG `question-banks-missing`).
 
 ## Stack
 

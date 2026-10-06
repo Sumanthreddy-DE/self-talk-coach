@@ -36,10 +36,6 @@ class FakeKeys:
             return self.script.pop(0)[1]
         return None
 
-    def flush(self) -> None:
-        while self.script and self.script[0][0] <= self.clock.now():
-            self.script.pop(0)
-
 
 class FakeRecorder:
     def __init__(self, seconds: list[float]) -> None:
@@ -53,11 +49,20 @@ class FakeRecorder:
 
 
 class FakePlayer:
+    """Plays instantly: playback is over before the first key poll."""
+
     def __init__(self) -> None:
         self.played: list[bytes] = []
+        self.stopped = 0
 
-    def play(self, audio: bytes) -> None:
+    def start(self, audio: bytes) -> None:
         self.played.append(audio)
+
+    def is_playing(self) -> bool:
+        return False
+
+    def stop(self) -> None:
+        self.stopped += 1
 
 
 class FakeVoice:
@@ -221,35 +226,80 @@ def test_keyboard_interrupt_marks_aborted(tmp_path: Path) -> None:
 
 
 class TimedPlayer(FakePlayer):
-    """Playback takes real (fake-clock) time, like sd.play + sd.wait."""
+    """Playback takes fake-clock time, like sd.play running in the background."""
 
     def __init__(self, clock: FakeClock, seconds_per_play: float) -> None:
         super().__init__()
         self.clock = clock
         self.seconds = seconds_per_play
+        self.ends_at = 0.0
 
-    def play(self, audio: bytes) -> None:
-        super().play(audio)
-        self.clock.t = round(self.clock.t + self.seconds, 6)
+    def start(self, audio: bytes) -> None:
+        super().start(audio)
+        self.ends_at = round(self.clock.t + self.seconds, 6)
+
+    def is_playing(self) -> bool:
+        return self.clock.t < self.ends_at
+
+    def stop(self) -> None:
+        super().stop()
+        self.ends_at = self.clock.t
 
 
-def test_space_pressed_while_partner_speaks_is_ignored(tmp_path: Path) -> None:
-    # Partner audio plays 0-3 s. SPACE at 1.0 s is pressed DURING playback and must be dropped,
-    # otherwise it silently starts a recording and the learner's next SPACE stops it (the bug).
-    deps, conn, _, _, _ = _deps(
+def _timed(tmp_path: Path, keys_script, recordings=(), texts=(), replies=()):
+    deps, conn, _, _, out = _deps(tmp_path, keys_script, list(recordings), list(texts), list(replies))
+    player = TimedPlayer(deps.clock, seconds_per_play=3.0)
+    deps.player = player
+    status: list[str] = []
+    deps.status = status.append
+    return deps, conn, player, out, status
+
+
+def test_space_while_partner_speaks_interrupts_and_starts_recording(tmp_path: Path) -> None:
+    # Partner audio would play 0-3 s; SPACE at 1.0 s cuts it and records straight away.
+    deps, conn, player, _, status = _timed(
         tmp_path,
-        keys_script=[(1.0, " "), (4.0, " "), (6.0, " "), (12.0, "q")],
-        recordings=[2.0],
+        keys_script=[(1.0, " "), (2.0, " "), (8.0, "q")],
+        recordings=[1.0],
         texts=["Ich wohne in Reutlingen."],
         replies=[_reply("Wo wohnst du?"), _reply("Seit wann?")],
     )
-    deps.player = TimedPlayer(deps.clock, seconds_per_play=3.0)
-    status: list[str] = []
-    deps.status = status.append
     cid = ConversationSession(deps, scenario=None, llm_label="x").run()
 
     turns = list_turns(conn, cid)
     assert [t["speaker"] for t in turns] == ["partner", "learner", "partner"]
-    assert turns[1]["freeze_seconds"] == 1.0  # wait started at 3.0 s, real SPACE at 4.0 s
+    assert player.stopped >= 1
+    assert turns[1]["freeze_seconds"] == 0.0  # learner barged in, no freeze
+    assert any("unterbrechen" in line for line in status)
     assert any("Aufnahme" in line for line in status)
-    assert any("dran" in line for line in status)
+
+
+def test_q_while_partner_speaks_ends_conversation_at_once(tmp_path: Path) -> None:
+    deps, conn, player, _, _ = _timed(tmp_path, keys_script=[(1.0, "q")], replies=[_reply("Wo wohnst du?")])
+    cid = ConversationSession(deps, scenario=None, llm_label="x").run()
+
+    assert [t["speaker"] for t in list_turns(conn, cid)] == ["partner"]
+    assert player.stopped == 1
+    assert deps.clock.now() < 2.0  # did not sit through the rest of the audio
+
+
+def test_s_while_partner_speaks_restarts_slower(tmp_path: Path) -> None:
+    deps, conn, player, _, _ = _timed(
+        tmp_path, keys_script=[(1.0, "s"), (4.5, "q")], replies=[_reply("Wo wohnst du?")]
+    )
+    cid = ConversationSession(deps, scenario=None, llm_label="x").run()
+
+    assert player.played[:2] == [b"Wo wohnst du?", b"SLOW:Wo wohnst du?"]
+    assert player.stopped == 1
+    assert list_turns(conn, cid)[0]["slower_count"] == 1
+
+
+def test_t_while_partner_speaks_shows_text_without_stopping(tmp_path: Path) -> None:
+    deps, conn, player, out, _ = _timed(
+        tmp_path, keys_script=[(1.0, "t"), (10.0, "q")], replies=[_reply("Wo wohnst du?")]
+    )
+    cid = ConversationSession(deps, scenario=None, llm_label="x").run()
+
+    assert out == ["Partner: Wo wohnst du?"]
+    assert player.stopped == 0
+    assert list_turns(conn, cid)[0]["show_text_count"] == 1

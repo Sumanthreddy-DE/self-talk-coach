@@ -1321,7 +1321,7 @@ bash scripts/lint-arch.sh && .venv/Scripts/python -m pytest -q && git add src/se
   - Protocols `Clock` (`now() -> float`, `sleep(seconds: float) -> None`), `KeyInput` (`poll() -> str | None`), `Recorder` (`start() -> None`, `stop() -> numpy.ndarray`), `Player` (`play(audio: bytes) -> None`)
   - `SessionDeps` dataclass: `partner, transcriber, voice, player, recorder, keys, clock, picker, conn, paths, ladder: LadderTimings, rng: random.Random, store_audio: Callable[[bytes, Path], None] = encode_opus, out: Callable[[str], None] = print, now_iso: Callable[[], str]`
   - `ConversationSession(deps: SessionDeps, scenario: str | None, llm_label: str)` with `run() -> int` (conversation id)
-  - Keys: SPACE start/stop speaking, `r` replay, `s` slower, `t` show partner text, `q` quit (only while waiting to speak)
+  - Keys: SPACE start/stop speaking, `r` replay, `s` slower, `t` show partner text, `q` quit — all keys also work while the partner speaks: SPACE/q/r/s cut playback, `t` shows text without stopping (changed 2026-10-06 after the real-use test)
   - `PARDON = "Wie bitte? Kannst du das nochmal sagen?"`; `MIN_SPEECH_SECONDS = 0.4`
 
 - [ ] **Step 1: Write the failing test**
