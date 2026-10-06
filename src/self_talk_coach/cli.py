@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import statistics
 from pathlib import Path
 from typing import Annotated
 
@@ -225,6 +226,12 @@ def talk_command(
         )
         cid = ConversationSession(deps, scenario=scenario, llm_label=cfg.partner_model).run()
         turns = list_turns(conn, cid)
-    freezes = sorted(t["freeze_seconds"] for t in turns if t["freeze_seconds"] is not None)
-    median = freezes[len(freezes) // 2] if freezes else None
-    typer.echo(f"Gespräch {cid} gespeichert: {len(turns)} Turns, Median-Freeze {median} s")
+    median = median_freeze(turns)
+    shown = f"{median:.1f}" if median is not None else "–"
+    typer.echo(f"Gespräch {cid} gespeichert: {len(turns)} Turns, Median-Freeze {shown} s")
+
+
+def median_freeze(turns: list) -> float | None:
+    """Median of the recorded learner freezes; None when no turn has one."""
+    freezes = [t["freeze_seconds"] for t in turns if t["freeze_seconds"] is not None]
+    return statistics.median(freezes) if freezes else None
