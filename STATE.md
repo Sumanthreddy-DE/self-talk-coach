@@ -6,7 +6,7 @@ Status: active
 Last touched: 2026-10-05
 
 ## What
-German self-talk coaching tool (V1 weekend MVP): analyze spoken German practice audio against CEFR vocabulary baseline. Private repo Sumanthreddy-DE/self-talk-coach. Projects-level repo — sessions launch from THIS folder.
+German self-talk coaching tool (V1 weekend MVP): analyze spoken German practice audio against CEFR vocabulary baseline. Public repo Sumanthreddy-DE/self-talk-coach (made public 2026-10-07, MIT; README rewritten the same day). Projects-level repo — sessions launch from THIS folder.
 
 ## Done
 - 2026-08-27: moved out of `Myself/` to `Projects/self-talk-coach/`. Own Claude slug created (`C--Users-suman-Desktop-Docs-Job-Projects-self-talk-coach`); the project memory now lives there as a pointer to these repo docs. Pre-move sessions stay in the Myself slug.
