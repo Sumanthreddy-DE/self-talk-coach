@@ -6,7 +6,7 @@ import numpy as np
 
 from self_talk_coach.conversation.help_ladder import NUDGE_PHRASES, LadderTimings
 from self_talk_coach.conversation.partner import PartnerReply, PartnerTurn, PartnerUnavailable
-from self_talk_coach.conversation.question_bank import Seed, SeedPicker
+from self_talk_coach.conversation.question_bank import ScenarioDeck, Seed
 from self_talk_coach.conversation.session import PARDON, ConversationSession, SessionDeps
 from self_talk_coach.conversation.stt import LearnerTranscript
 from self_talk_coach.db import connect, get_conversation, init_db, list_turns
@@ -94,6 +94,10 @@ class FakePartner:
         self.learner_texts: list[str] = []
         self.sections: list[str] = []
         self.phrases: list[bool] = []
+        self.resets = 0
+
+    def reset(self) -> None:
+        self.resets += 1
 
     def opening(self, seed: str, section: str = "", phrase: bool = False) -> PartnerReply:
         self.sections.append(section)
@@ -128,7 +132,7 @@ def _deps(tmp_path: Path, keys_script, recordings, texts, replies):
         recorder=FakeRecorder(recordings),
         keys=FakeKeys(clock, keys_script),
         clock=clock,
-        picker=SeedPicker([Seed("S", "Arbeit"), Seed("S", "Essen"), Seed("S", "Wohnung")], random.Random(0)),
+        picker=ScenarioDeck([Seed("S", "Arbeit"), Seed("S", "Essen"), Seed("S", "Wohnung")], None, random.Random(0)),
         conn=conn,
         paths=AppPaths.from_data_root(tmp_path),
         ladder=LadderTimings(),
@@ -311,3 +315,24 @@ def test_t_while_partner_speaks_shows_text_without_stopping(tmp_path: Path) -> N
     assert out == ["Partner: Wo wohnst du?"]
     assert player.stopped == 0
     assert list_turns(conn, cid)[0]["show_text_count"] == 1
+
+
+def test_w_switches_to_next_scenario_with_fresh_partner(tmp_path: Path) -> None:
+
+
+    deps, conn, _, _, _ = _deps(
+        tmp_path,
+        keys_script=[(1.0, "w"), (3.0, "q")],
+        recordings=[],
+        texts=[],
+        replies=[_reply("Was arbeitest du?"), _reply("Was isst du gern?")],
+    )
+    deps.picker = ScenarioDeck([Seed("A", "Arbeit"), Seed("B", "Essen")], "A", random.Random(0))
+    status: list[str] = []
+    deps.status = status.append
+    cid = ConversationSession(deps, scenario="A", llm_label="x").run()
+
+    assert deps.partner.sections == ["A", "B"]  # both are openings: new scene starts fresh
+    assert deps.partner.resets == 1
+    assert "[Szenario] B" in status
+    assert [t["text"] for t in list_turns(conn, cid)] == ["Was arbeitest du?", "Was isst du gern?"]

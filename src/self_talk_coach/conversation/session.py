@@ -19,7 +19,7 @@ from self_talk_coach.conversation.help_ladder import (
     step_for,
 )
 from self_talk_coach.conversation.partner import PartnerReply, PartnerUnavailable, fallback_reply
-from self_talk_coach.conversation.question_bank import SeedPicker
+from self_talk_coach.conversation.question_bank import ScenarioDeck
 from self_talk_coach.conversation.stt import LearnerTranscriber, LearnerTranscript
 from self_talk_coach.conversation.tts import Voice
 from self_talk_coach.db import (
@@ -36,7 +36,7 @@ MIN_SPEECH_SECONDS = 0.4
 POLL_SECONDS = 0.05
 MAX_RECORD_SECONDS = 60.0
 # Keys that cut playback short; the key is then handled as if pressed while waiting.
-INTERRUPT_KEYS = frozenset({" ", "q", "r", "s"})
+INTERRUPT_KEYS = frozenset({" ", "q", "r", "s", "w"})
 
 
 class Clock(Protocol):
@@ -68,7 +68,7 @@ class SessionDeps:
     recorder: Recorder
     keys: KeyInput
     clock: Clock
-    picker: SeedPicker
+    picker: ScenarioDeck
     conn: sqlite3.Connection
     paths: AppPaths
     ladder: LadderTimings
@@ -84,6 +84,7 @@ class _Window:
     """Learner-side state for one partner turn, kept across pardon retries."""
 
     quit: bool = False
+    switch: bool = False  # 'w': leave this scenario for the next one
     freeze_seconds: float | None = None
     ladder_step: int = 0
     replay: int = 0
@@ -125,15 +126,20 @@ class ConversationSession:
                 window = _Window()
                 partner_turn_id = self._speak_and_store_partner(window)
                 transcript: LearnerTranscript | None = None
-                while transcript is None and not window.quit:
+                while transcript is None and not window.quit and not window.switch:
                     self._wait_for_learner(window)  # after a pardon: same partner turn, fresh timer
-                    if not window.quit:
+                    if not window.quit and not window.switch:
                         transcript = self._record_and_transcribe(window.freeze_seconds)
                 update_turn_listening(
                     d.conn, partner_turn_id,
                     ladder_step_reached=window.ladder_step, replay_count=window.replay,
                     slower_count=window.slower, show_text_count=window.show_text,
                 )
+                if window.switch:
+                    d.status(f"[Szenario] {d.picker.switch()}")
+                    d.partner.reset()
+                    self._partner_turn(opening=True, learner_text="")
+                    continue
                 if transcript is None:
                     break
                 self._partner_turn(opening=False, learner_text=transcript.text)
@@ -164,7 +170,7 @@ class ConversationSession:
     def _speak_and_store_partner(self, window: _Window) -> int:
         d, s = self._d, self._s
         assert s.reply is not None
-        d.status("[Partner spricht] SPACE = unterbrechen · r = nochmal · s = langsamer · t = Text · q = Ende")
+        d.status("[Partner spricht] SPACE = unterbrechen · r = nochmal · s = langsamer · t = Text · w = Szenario · q = Ende")
         self._play(s.audio, window)
         index = self._next_index()
         audio_path = self._store(s.audio, index, "partner")
@@ -187,7 +193,7 @@ class ConversationSession:
         d, s = self._d, self._s
         assert s.reply is not None
         spoken = s.reply.turn.spoken_text()
-        d.status("[Du bist dran] SPACE = sprechen · r = nochmal · s = langsamer · t = Text · q = Ende")
+        d.status("[Du bist dran] SPACE = sprechen · r = nochmal · s = langsamer · t = Text · w = Szenario · q = Ende")
         started = d.clock.now()
         while True:
             key = self._next_key()
@@ -196,6 +202,9 @@ class ConversationSession:
                 return
             if key == "q":
                 window.quit = True
+                return
+            if key == "w":
+                window.switch = True
                 return
             if key == "r":
                 window.replay += 1

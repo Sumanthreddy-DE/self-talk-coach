@@ -20,7 +20,7 @@ Terms used below are defined in `CONTEXT.md` (conversation, partner, turn, scena
 **v1 (laptop, Windows, terminal):**
 - `stc talk` starts a conversation: free talk or a scenario card.
 - Toggle push-to-talk key: press to start speaking, press to stop.
-- Partner speaks; its text is hidden. Keys during/after a partner turn: replay, slower, show text.
+- Partner speaks; its text is hidden. Keys during/after a partner turn: replay, slower, show text, switch to the next scenario card (`w`, added 2026-10-07; the partner starts a fresh scene).
 - Help ladder on silence: 4 s nudge (fixed phrase), 8 s starter phrase, 12 s simpler rephrase — all by voice, pre-generated, never shown before the learner speaks.
 - Comprehension check every 4th partner turn: "Erzähl kurz nach, was ich gerade gesagt habe." (retelling).
 - Partner recasts learner errors in passing; no grammar explanation during the conversation.

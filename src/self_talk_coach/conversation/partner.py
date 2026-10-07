@@ -158,6 +158,10 @@ class Partner:
         self._max_history = max_history
         self.history: list[dict[str, str]] = []
 
+    def reset(self) -> None:
+        """Forget the conversation so far: a new scenario starts a new scene."""
+        self.history = []
+
     def opening(self, seed: str, section: str = "", phrase: bool = False) -> PartnerReply:
         return self._turn(
             f"Beginne das Gespräch mit einer kurzen Begrüßung und einer Frage.\n{_impulse(seed, section, phrase)}"

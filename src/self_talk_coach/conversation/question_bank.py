@@ -59,6 +59,38 @@ def filter_scenario(seeds: Sequence[Seed], scenario: str | None) -> list[Seed]:
     return chosen
 
 
+class ScenarioDeck:
+    """Seeds for the current scenario; `switch()` moves on to the next bank section (key 'w').
+
+    Starts with all sections mixed (no scenario) or with the sections matching `scenario`.
+    Switching steps through single sections in bank order and wraps around.
+    """
+
+    MIXED = "alle Bereiche"
+
+    def __init__(self, seeds: Sequence[Seed], scenario: str | None, rng: random.Random) -> None:
+        chosen = filter_scenario(seeds, scenario)
+        self._seeds = list(seeds)
+        self._sections = list(dict.fromkeys(s.section for s in seeds))
+        self._rng = rng
+        matched = list(dict.fromkeys(s.section for s in chosen))
+        if scenario is None:
+            self._index, self.label = -1, self.MIXED
+        else:
+            self._index = self._sections.index(matched[-1])
+            self.label = matched[0] if len(matched) == 1 else scenario
+        self._picker = SeedPicker(chosen, rng)
+
+    def next(self) -> Seed:
+        return self._picker.next()
+
+    def switch(self) -> str:
+        self._index = (self._index + 1) % len(self._sections)
+        self.label = self._sections[self._index]
+        self._picker = SeedPicker([s for s in self._seeds if s.section == self.label], self._rng)
+        return self.label
+
+
 class SeedPicker:
     """Random seeds without repeats until every seed was used once, then a fresh shuffle."""
 

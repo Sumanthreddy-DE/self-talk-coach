@@ -71,3 +71,29 @@ def test_mark_phrase_sections_matches_section_names_case_insensitively() -> None
     seeds = mark_phrase_sections(parse_bank(BANK), ("daily life",))
     assert {s.section: s.phrase for s in seeds} == {"Interview: Core": False, "Daily Life In Germany": True}
     assert all(not s.phrase for s in mark_phrase_sections(parse_bank(BANK), ()))
+
+
+def _deck_seeds() -> list[Seed]:
+    return [Seed("A", "a1"), Seed("A", "a2"), Seed("B", "b1"), Seed("C", "c1")]
+
+
+def test_deck_mixed_start_then_switch_cycles_sections_in_bank_order() -> None:
+    from self_talk_coach.conversation.question_bank import ScenarioDeck
+
+    deck = ScenarioDeck(_deck_seeds(), None, random.Random(0))
+    assert deck.label == "alle Bereiche"
+    assert {deck.next().section for _ in range(8)} == {"A", "B", "C"}
+    assert [deck.switch() for _ in range(4)] == ["A", "B", "C", "A"]
+    assert {deck.next().text for _ in range(4)} == {"a1", "a2"}
+
+
+def test_deck_filtered_start_switches_to_following_section() -> None:
+    from self_talk_coach.conversation.question_bank import ScenarioDeck
+
+    deck = ScenarioDeck(_deck_seeds(), "b", random.Random(0))
+    assert deck.label == "B"
+    assert deck.next().text == "b1"
+    assert deck.switch() == "C"
+    assert deck.next().text == "c1"
+    with pytest.raises(ValueError):
+        ScenarioDeck(_deck_seeds(), "zzz", random.Random(0))

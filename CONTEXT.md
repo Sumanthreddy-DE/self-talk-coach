@@ -29,7 +29,7 @@ Last swept: 2026-05-28
 
 Relationships:
 - A **conversation** has many **turns**; each turn belongs to the learner or the partner.
-- A **conversation** uses zero or one **scenario card**.
+- A **conversation** uses zero or more **scenario cards**: it starts with one (or free talk) and the learner can switch to the next one mid-conversation (key `w`).
 - A learner **turn** has one **learner transcript**.
 - A **conversation** produces exactly one **session report**.
 
