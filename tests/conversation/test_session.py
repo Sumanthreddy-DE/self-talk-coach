@@ -336,3 +336,35 @@ def test_w_switches_to_next_scenario_with_fresh_partner(tmp_path: Path) -> None:
     assert deps.partner.resets == 1
     assert "[Szenario] B" in status
     assert [t["text"] for t in list_turns(conn, cid)] == ["Was arbeitest du?", "Was isst du gern?"]
+
+
+def _three_scenario_deps(tmp_path: Path, keys_script):
+    deps, conn, _, _, out = _deps(
+        tmp_path, keys_script=keys_script, recordings=[], texts=[],
+        replies=[_reply("Was arbeitest du?"), _reply("Was isst du gern?")],
+    )
+    deps.picker = ScenarioDeck(
+        [Seed("A", "Arbeit"), Seed("B", "Essen"), Seed("C", "Wohnung")], "A", random.Random(0)
+    )
+    return deps, conn, out
+
+
+def test_f_lists_scenarios_and_number_enter_switches(tmp_path: Path) -> None:
+    deps, conn, out = _three_scenario_deps(
+        tmp_path, keys_script=[(1.0, "f"), (1.1, "3"), (1.2, "\r"), (3.0, "q")]
+    )
+    cid = ConversationSession(deps, scenario="A", llm_label="x").run()
+
+    assert ">  1  A" in out and "   3  C" in out  # '>' marks the current scenario
+    assert deps.partner.sections == ["A", "C"]
+    assert deps.partner.resets == 1
+    assert len(list_turns(conn, cid)) == 2
+
+
+def test_f_then_enter_without_number_keeps_scenario(tmp_path: Path) -> None:
+    deps, conn, _ = _three_scenario_deps(tmp_path, keys_script=[(1.0, "f"), (1.5, "\r"), (3.0, "q")])
+    cid = ConversationSession(deps, scenario="A", llm_label="x").run()
+
+    assert deps.partner.sections == ["A"]
+    assert deps.partner.resets == 0
+    assert len(list_turns(conn, cid)) == 1

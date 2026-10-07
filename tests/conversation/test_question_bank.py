@@ -97,3 +97,16 @@ def test_deck_filtered_start_switches_to_following_section() -> None:
     assert deck.next().text == "c1"
     with pytest.raises(ValueError):
         ScenarioDeck(_deck_seeds(), "zzz", random.Random(0))
+
+
+def test_deck_options_mark_current_and_choose_by_number() -> None:
+    from self_talk_coach.conversation.question_bank import ScenarioDeck
+
+    deck = ScenarioDeck(_deck_seeds(), "b", random.Random(0))
+    assert deck.options() == ["alle Bereiche", "A", "B", "C"]
+    assert deck.current_option == 2
+    assert deck.choose(3) == "C" and deck.current_option == 3
+    assert deck.next().text == "c1"
+    assert deck.choose(0) == "alle Bereiche" and deck.current_option == 0
+    assert {deck.next().section for _ in range(8)} == {"A", "B", "C"}
+    assert deck.switch() == "A"
