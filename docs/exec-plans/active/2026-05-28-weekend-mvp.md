@@ -1,11 +1,14 @@
 # Blueprint: self-talk-coach (V1 Weekend MVP)
 
+**Status:** abandoned
+**Last verified:** 2026-10-07
+**Status evidence:** S1 scaffold + S3 baseline shipped (caea308, 16de6aa); S2 was rebuilt as M2 under the local-first core design (2026-05-31 spec), which replaced this file-based pipeline with a SQLite core. S4–S6 never built: `mine.py`, `enrich.py`, `anki.py` are 4-line stubs, no CLI commands. Reusable designs carried to BACKLOG: `vocab-miner` (S4), `anki-export` (S5).
+
 **Project root:** `C:/Users/suman/Desktop/Docs/Job/Projects/self-talk-coach/`
 **Objective:** Python CLI that ingests German self-talk video files → transcribes (faster-whisper) → mines unknown vocab vs Goethe-B1 baseline (spaCy) → enriches via Claude API → exports Anki `.apkg`.
 **Scope:** Selfish utility, sole user = Sumanth. Corpus <5h. Private repo, flip public later.
 **Owner:** Sumanth (Sumanthreddy-DE)
 **Created:** 2026-05-28
-**Status:** Draft — pending review gate
 
 ---
 
