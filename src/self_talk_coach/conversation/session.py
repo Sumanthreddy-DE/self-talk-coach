@@ -145,9 +145,13 @@ class ConversationSession:
     # --- partner side -------------------------------------------------------
 
     def _partner_turn(self, *, opening: bool, learner_text: str) -> None:
-        seed = self._d.picker.next().text
+        picked = self._d.picker.next()
+        seed = picked.text
         try:
-            reply = self._d.partner.opening(seed) if opening else self._d.partner.respond(learner_text, seed)
+            if opening:
+                reply = self._d.partner.opening(seed, section=picked.section)
+            else:
+                reply = self._d.partner.respond(learner_text, seed, section=picked.section)
         except PartnerUnavailable as exc:
             self._d.status(f"[Hinweis] KI-Partner nicht erreichbar, ich lese die Frage aus der Liste vor. Grund: {str(exc)[:160]}")
             reply = fallback_reply(seed)

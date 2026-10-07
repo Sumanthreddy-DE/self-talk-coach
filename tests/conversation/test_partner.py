@@ -103,3 +103,54 @@ def test_fallback_reply_uses_seed() -> None:
     reply = fallback_reply("Was kochst du gern?")
     assert reply.turn.reply == "Was kochst du gern?"
     assert reply.model == "none"
+
+
+def _turn(recast: str | None, reply: str):
+    return parse_partner_turn(json.dumps({**GOOD, "recast": recast, "reply": reply}))
+
+
+@pytest.mark.parametrize(
+    ("recast", "reply", "spoken_reply"),
+    [  # real echoes from DeepSeek V4 Pro, 2026-10-06/07
+        ("Ah, du hast Maschinenbau studiert und suchst jetzt Arbeit in Deutschland?",
+         "Ah, du hast Maschinenbau studiert und suchst jetzt Arbeit in Deutschland. Warum möchtest du hier arbeiten?",
+         "Warum möchtest du hier arbeiten?"),
+        ("Du suchst die Adresse in Stuttgart-Bad Cannstatt und willst wissen, wie du da hinkommst?",
+         "Du willst also zur Adresse in Stuttgart-Bad Cannstatt? Meinst du mit der Bahn oder mit dem Auto?",
+         "Meinst du mit der Bahn oder mit dem Auto?"),
+        ("Du erinnerst dich nicht mehr, was du da machen musst?",
+         "Du weißt also nicht mehr genau, was du da machen musst? Sollen sie dir das per E-Mail schicken?",
+         "Sollen sie dir das per E-Mail schicken?"),
+    ],
+)
+def test_spoken_text_drops_reply_sentence_that_echoes_recast(recast, reply, spoken_reply) -> None:
+    assert _turn(recast, reply).spoken_text() == f"{recast} {spoken_reply}"
+
+
+@pytest.mark.parametrize(
+    ("recast", "reply"),
+    [
+        ("Ah, du hast Maschinenbau studiert?", "Warum hast du Maschinenbau studiert? Und dann?"),  # W-question is new
+        ("Ah, du arbeitest seit Montag in dieser Firma?", "Was war am ersten Tag am schwierigsten?"),
+        ("Ah, du arbeitest seit Montag in dieser Firma?", "Ah, du arbeitest seit Montag in dieser Firma?"),  # never empty
+    ],
+)
+def test_spoken_text_keeps_reply_that_is_new_or_only_sentence(recast, reply) -> None:
+    assert _turn(recast, reply).spoken_text() == f"{recast} {reply}"
+
+
+def test_bank_section_reaches_the_model() -> None:
+    client = FakeClient({"primary": [json.dumps(GOOD), json.dumps(GOOD)]})
+    partner = Partner(client, "primary", "fallback", "SYS")
+    partner.opening("Ich suche diese Adresse.", section="Daily Life In Germany")
+    assert "Daily Life In Germany" in client.calls[-1][1][-1]["content"]
+    partner.respond("Ich weiß nicht.", "Bis wann soll ich das fertig machen?", section="Office German")
+    content = client.calls[-1][1][-1]["content"]
+    assert "Office German" in content and "Bis wann soll ich das fertig machen?" in content
+
+
+def test_system_prompt_guards_phrase_seeds_and_repeat_requests() -> None:
+    prompt = build_system_prompt(None)
+    assert "Erfinde nie" in prompt  # no claims the learner never made
+    assert "Rolle" in prompt  # phrase seeds become a role-play situation
+    assert "Wie bitte?" in prompt  # repeat request → repeat, simpler
