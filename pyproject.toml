@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "self-talk-coach"
 version = "0.1.0"
-description = "Personal German vocab miner: self-talk videos -> Anki cards via Whisper + spaCy + Claude"
+description = "Spoken German practice: a voice conversation partner with a help ladder, plus local transcription of self-talk videos"
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{name = "Sumanth Reddy Settipalli"}]

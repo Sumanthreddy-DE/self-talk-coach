@@ -1,95 +1,164 @@
 # self-talk-coach
 
-> Persönliches Vokabelminer für deutschsprachige Selbstgespräche – aus eigenen Videos werden Anki-Karten.
-> Personal vocab miner for German self-talk – your own videos become Anki cards.
+Spoken German practice from the command line. A voice conversation partner that
+waits when you freeze, plus a local library that transcribes your own German
+self-talk videos.
 
----
+> **Kurzfassung (DE):** `stc talk` führt ein gesprochenes Gespräch auf Deutsch.
+> Du sprichst, Deepgram transkribiert, ein LLM antwortet als Gesprächspartner,
+> edge-tts spricht die Antwort. Wenn du nach einer Frage stockst, hilft der Partner
+> schrittweise weiter. Fehler greift er korrigiert wieder auf, ohne Grammatikvortrag.
+> Dazu kommt eine lokale Mediathek: eigene Selbstgespräch-Videos importieren und mit
+> faster-whisper offline transkribieren.
 
-## Deutsch
+Built for one learner (me, around B1) who wants to speak more and freeze less.
+It is a personal tool, shared as-is.
 
-### Was es macht
+## What it does
 
-`self-talk-coach` nimmt deine eigenen deutschsprachigen Selbstgespräch-Videos und baut daraus einen Anki-Deck mit unbekannten Vokabeln (B2+ relativ zu einer Goethe-B1-Basisliste).
+### 1. Conversation partner: `stc talk`
 
-Pipeline:
+One turn looks like this:
 
-1. **Ingest** – Audio aus Videos extrahieren (ffmpeg, 16 kHz Mono)
-2. **Transkribieren** – `faster-whisper` (Deutsch, `medium` + `int8` als Standard)
-3. **Minen** – `spaCy de_core_news_lg` lemmatisiert, filtert gegen Goethe-B1-Wortliste
-4. **Anreichern** – Claude API liefert Definition (DE+EN), Genus, Beispielsatz
-5. **Exportieren** – `genanki` packt alles in eine `.apkg`-Datei
+1. You press **SPACE**, speak German, press **SPACE** again.
+2. Deepgram (`nova-3`, German) transcribes what you said.
+3. An LLM partner answers in German through any OpenAI-compatible chat endpoint.
+   If you made a mistake, it repeats your sentence back in corrected form, the way
+   a native speaker would ask a follow-up question. No explanation, no lecture.
+4. `edge-tts` reads the reply aloud (default voice `de-DE-SeraphinaMultilingualNeural`).
 
-### Schnellstart
+If you go quiet after a question, a **help ladder** steps in. The default timings
+are 4, 8 and 12 seconds:
+
+| After | The partner |
+|---|---|
+| 4 s | Nudges you ("Lass dir ruhig Zeit.") |
+| 8 s | Offers a sentence starter |
+| 12 s | Rephrases the question more simply |
+
+Topics come from your own **question banks**: Markdown files with `## ` sections and
+numbered questions. Pick a scenario at the start or switch mid-conversation. Sections
+named in `STC_PHRASE_SECTIONS` hold sentences *you* should say; for those, the partner
+role-plays a situation that invites the phrase instead of asking it as a question.
+
+Keys during a conversation:
+
+| Key | Action |
+|---|---|
+| `SPACE` | Start / stop speaking |
+| `r` | Repeat the last reply |
+| `s` | Repeat it slower |
+| `t` | Show the reply as text |
+| `f` | Scenario list |
+| `w` | Next scenario |
+| `q` | End the conversation |
+
+Every turn is saved: text and timings in a local SQLite database, audio as Opus files
+under `data/conversations/<id>/`. At the end you get the turn count and your median
+"freeze" time, the pause before you started answering.
+
+If the main model fails, the partner retries with the fallback model and the console
+says so. If both fail, the session asks the scenario question directly rather than
+stopping.
+
+### 2. Self-talk library
+
+Record yourself talking German, then turn the videos into searchable transcripts.
+Transcription runs locally with `faster-whisper`; nothing leaves your machine.
 
 ```bash
+stc init                                   # create data/ and the SQLite database
+# drop videos into data/media/inbox/
+stc import                                 # move them into the library, skip duplicates
+stc transcribe                             # faster-whisper, default: medium, int8, CPU
+stc export transcripts --format markdown   # or --format json
+```
+
+## Requirements
+
+- Python 3.12+
+- `ffmpeg` on `PATH` (audio extraction and Opus storage)
+- **Windows** for `stc talk`: key handling uses `msvcrt`, so it needs a real Windows
+  console. The library commands are not tied to Windows.
+- A microphone and speakers
+- For `stc talk`: a Deepgram API key and an OpenAI-compatible chat endpoint that
+  serves the partner and fallback models
+
+## Setup
+
+```powershell
 git clone https://github.com/Sumanthreddy-DE/self-talk-coach.git
 cd self-talk-coach
 python -m venv .venv
-.venv/Scripts/python -m pip install -e ".[dev]"
-.venv/Scripts/python -m spacy download de_core_news_lg
-
-cp .env.example .env
-# ANTHROPIC_API_KEY in .env einfügen
-
-# Lokale Mediathek initialisieren und eigene Videos importieren
-stc init
-# Put daily German self-talk videos into data/media/inbox/
-stc import
-stc transcribe
-stc export transcripts --format json
-stc export transcripts --format markdown
-
-# Optional: Mit synthetischem Beispiel testen (kein echtes Audio nötig)
-stc mine samples/
-stc enrich --max-cards 5
-stc pack
+.venv\Scripts\python -m pip install -e ".[dev]"
+copy .env.example .env
 ```
 
-### Voraussetzungen
+Fill in `.env`:
 
-- Python 3.12+
-- `ffmpeg` im PATH (Windows: `winget install ffmpeg`, macOS: `brew install ffmpeg`)
-- Anthropic API-Schlüssel
-- Optional: Anki / AnkiDroid zum Importieren des `.apkg`
+| Variable | Needed for | Default |
+|---|---|---|
+| `DEEPGRAM_API_KEY` | `stc talk` (required) | none |
+| `GATEWAY_BASE_URL`, `GATEWAY_API_KEY` | `stc talk` (required) | none |
+| `STC_QUESTION_BANKS` | `stc talk` (required): `;`-separated absolute paths to your Markdown banks, read in place | none |
+| `STC_PARTNER_MODEL` | Main partner model | `deepseek-v4-pro` |
+| `STC_FALLBACK_MODEL` | Used when the main model fails | `claude-sonnet-5` |
+| `STC_TTS_VOICE` | edge-tts voice | `de-DE-SeraphinaMultilingualNeural` |
+| `STC_LADDER_SECONDS` | Help-ladder timings | `4,8,12` |
+| `STC_PHRASE_SECTIONS` | Bank sections that hold phrases to say | `Daily Life In Germany;Office German;Szenario` |
 
-### Konfiguration
+A question bank looks like this:
 
-| Variable | Standard | Zweck |
-|----------|----------|-------|
-| `ANTHROPIC_API_KEY` | – | Pflicht für `stc enrich` |
-| `ANTHROPIC_MODEL` | `claude-haiku-4-5` | Optionaler Override |
+```markdown
+## Daily
+1. Was hast du heute schon gemacht?
+2. Wie sieht dein typischer Morgen aus?
 
-### Lizenz
+## Office German
+1. Könnten Sie mir das bitte noch einmal erklären?
+```
 
-MIT. Siehe `LICENSE`.
+Optional: put a short description of yourself in `data/learner-profile.md` (level,
+job, interests). The partner reads it and adapts.
 
----
+Run from the repo root, since `data/` is relative:
 
-## English
+```powershell
+stc talk                     # choose a scenario from the menu
+stc talk --scenario "Daily"  # or start in one directly
+```
 
-### What it does
+## Privacy
 
-`self-talk-coach` ingests your own German self-talk videos and produces an Anki deck of unknown vocabulary (B2+ relative to a Goethe-B1 baseline list).
+- `data/` (your audio, transcripts and database) is gitignored and never committed.
+  The only sample in the repo, `samples/synthetic-transcript.json`, is hand-written,
+  not a recording.
+- `stc talk` sends your audio to Deepgram and the text to your chat endpoint.
+  `stc transcribe` runs fully offline.
 
-Pipeline: ffmpeg → faster-whisper → spaCy → Claude API → genanki.
+## Project layout
 
-### Quickstart
+```
+src/self_talk_coach/
+├── cli.py                  # Typer entry point (`stc`)
+├── conversation/           # stc talk: session loop, partner, STT, TTS, help ladder, banks
+├── db.py, paths.py         # SQLite schema and the data/ layout
+├── ingest.py, transcribe.py, transcript_export.py   # self-talk library
+└── mine.py, enrich.py, anki.py   # vocab miner from the first MVP (not in the CLI yet)
+resources/baseline-de-b1.txt      # ~4000 B1 lemmas from wordfreq (MIT), see resources/README.md
+docs/adr/                         # design decisions, e.g. own turn loop over a voice-agent framework
+```
 
-See "Schnellstart" above – commands are identical.
+Tests: `.venv\Scripts\python -m pytest`
 
-### Requirements
+## Status and next steps
 
-- Python 3.12+
-- `ffmpeg` on PATH
-- Anthropic API key
-- Optional: Anki / AnkiDroid to import the `.apkg`
+Active personal project. Working today: the conversation partner and the self-talk
+library. Next: an analysis pass over stored transcripts that suggests corrections and
+better phrasings, then a review queue. The original idea, mining unknown words from
+self-talk into Anki cards, lives in `mine.py` / `enrich.py` / `anki.py` and is not
+wired into the CLI yet.
 
-### License
+## License
 
-MIT.
-
----
-
-## Status
-
-V1 weekend MVP. See `docs/exec-plans/01-weekend-mvp.md` for the construction plan.
+MIT, see [LICENSE](LICENSE).
