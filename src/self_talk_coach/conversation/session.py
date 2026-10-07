@@ -35,8 +35,9 @@ PARDON = "Wie bitte? Kannst du das nochmal sagen?"
 MIN_SPEECH_SECONDS = 0.4
 POLL_SECONDS = 0.05
 MAX_RECORD_SECONDS = 60.0
+KEYS = "t = Text · f = Szenarien · w = nächstes · q = Ende"
 # Keys that cut playback short; the key is then handled as if pressed while waiting.
-INTERRUPT_KEYS = frozenset({" ", "q", "r", "s", "w"})
+INTERRUPT_KEYS = frozenset({" ", "q", "r", "s", "w", "f"})
 
 
 class Clock(Protocol):
@@ -84,7 +85,8 @@ class _Window:
     """Learner-side state for one partner turn, kept across pardon retries."""
 
     quit: bool = False
-    switch: bool = False  # 'w': leave this scenario for the next one
+    switch: bool = False  # 'w' or the 'f' menu: leave this scenario
+    switch_to: int | None = None  # menu option chosen with 'f'; None = next scenario
     freeze_seconds: float | None = None
     ladder_step: int = 0
     replay: int = 0
@@ -136,7 +138,8 @@ class ConversationSession:
                     slower_count=window.slower, show_text_count=window.show_text,
                 )
                 if window.switch:
-                    d.status(f"[Szenario] {d.picker.switch()}")
+                    label = d.picker.switch() if window.switch_to is None else d.picker.choose(window.switch_to)
+                    d.status(f"[Szenario] {label}")
                     d.partner.reset()
                     self._partner_turn(opening=True, learner_text="")
                     continue
@@ -170,7 +173,7 @@ class ConversationSession:
     def _speak_and_store_partner(self, window: _Window) -> int:
         d, s = self._d, self._s
         assert s.reply is not None
-        d.status("[Partner spricht] SPACE = unterbrechen · r = nochmal · s = langsamer · t = Text · w = Szenario · q = Ende")
+        d.status("[Partner spricht] SPACE = unterbrechen · r = nochmal · s = langsamer · t = Text · f = Szenarien · w = nächstes · q = Ende")
         self._play(s.audio, window)
         index = self._next_index()
         audio_path = self._store(s.audio, index, "partner")
@@ -193,7 +196,7 @@ class ConversationSession:
         d, s = self._d, self._s
         assert s.reply is not None
         spoken = s.reply.turn.spoken_text()
-        d.status("[Du bist dran] SPACE = sprechen · r = nochmal · s = langsamer · t = Text · w = Szenario · q = Ende")
+        d.status("[Du bist dran] SPACE = sprechen · r = nochmal · s = langsamer · t = Text · f = Szenarien · w = nächstes · q = Ende")
         started = d.clock.now()
         while True:
             key = self._next_key()
@@ -206,6 +209,13 @@ class ConversationSession:
             if key == "w":
                 window.switch = True
                 return
+            if key == "f":
+                choice = self._scenario_menu()
+                if choice is not None:
+                    window.switch, window.switch_to = True, choice
+                    return
+                d.status("[Du bist dran] SPACE = sprechen · r = nochmal · s = langsamer · " + KEYS)
+                started = d.clock.now()  # menu time is not freeze time
             if key == "r":
                 window.replay += 1
                 self._play(s.audio, window)
@@ -221,6 +231,29 @@ class ConversationSession:
                 if helper:
                     self._play(d.voice.synthesize(helper), window)
             d.clock.sleep(POLL_SECONDS)
+
+    def _scenario_menu(self) -> int | None:
+        """List scenarios ('>' = current); number + Enter picks one, Enter alone or Esc goes back."""
+        d = self._d
+        d.out("[Szenarien]")
+        for i, name in enumerate(d.picker.options()):
+            d.out(f"{'>' if i == d.picker.current_option else ' '} {i:2}  {name}")
+        d.status("Nummer + Enter = wechseln · Enter = zurück")
+        digits = ""
+        while True:
+            key = d.keys.poll()
+            if key in ("\r", "\n", "\x1b"):
+                break
+            if key is not None and key.isdigit():
+                digits += key
+                d.status(f"Auswahl: {digits}")
+            d.clock.sleep(POLL_SECONDS)
+        if key == "\x1b" or not digits:
+            return None
+        if int(digits) < len(d.picker.options()):
+            return int(digits)
+        d.status(f"Keine Nummer {digits} — weiter im aktuellen Szenario.")
+        return None
 
     def _helper_text(self, step: LadderStep) -> str:
         assert self._s.reply is not None

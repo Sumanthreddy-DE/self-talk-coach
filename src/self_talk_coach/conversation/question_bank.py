@@ -84,11 +84,26 @@ class ScenarioDeck:
     def next(self) -> Seed:
         return self._picker.next()
 
-    def switch(self) -> str:
-        self._index = (self._index + 1) % len(self._sections)
+    def options(self) -> list[str]:
+        """Menu entries: 0 = all sections mixed, then each section in bank order."""
+        return [self.MIXED, *self._sections]
+
+    @property
+    def current_option(self) -> int:
+        return self._index + 1
+
+    def choose(self, option: int) -> str:
+        if option == 0:
+            self._index, self.label = -1, self.MIXED
+            self._picker = SeedPicker(self._seeds, self._rng)
+            return self.label
+        self._index = option - 1
         self.label = self._sections[self._index]
         self._picker = SeedPicker([s for s in self._seeds if s.section == self.label], self._rng)
         return self.label
+
+    def switch(self) -> str:
+        return self.choose((self._index + 1) % len(self._sections) + 1)
 
 
 class SeedPicker:

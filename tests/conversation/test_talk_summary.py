@@ -11,3 +11,19 @@ def test_median_freeze_averages_middle_pair_for_even_count() -> None:
 def test_median_freeze_odd_count_and_empty() -> None:
     assert median_freeze([{"freeze_seconds": s} for s in (5.0, 1.0, 3.0)]) == 3.0
     assert median_freeze([{"freeze_seconds": None}]) is None
+
+
+def test_choose_start_scenario_by_number_reasks_on_bad_input_enter_is_mixed() -> None:
+    import random
+
+    from self_talk_coach.cli import choose_start_scenario
+    from self_talk_coach.conversation.question_bank import ScenarioDeck, Seed
+
+    seeds = [Seed("A", "a"), Seed("B", "b")]
+    shown: list[str] = []
+    answers = iter(["7", "x", "2"])
+    deck = ScenarioDeck(seeds, None, random.Random(0))
+    assert choose_start_scenario(deck, lambda _: next(answers), shown.append) == "B"
+    assert "   2  B" in shown and deck.next().text == "b"
+    assert sum("Keine Nummer" in line for line in shown) == 2
+    assert choose_start_scenario(ScenarioDeck(seeds, None, random.Random(0)), lambda _: "", shown.append) == "alle Bereiche"

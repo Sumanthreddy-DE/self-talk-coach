@@ -208,8 +208,13 @@ def talk_command(
         cfg.fallback_model,
         build_system_prompt(profile),
     )
+    if scenario is None:
+        choose_start_scenario(deck, input, typer.echo)
     typer.echo(f"Szenario: {deck.label}")
-    typer.echo("SPACE = sprechen/stoppen · r = nochmal · s = langsamer · t = Text zeigen · w = Szenario wechseln · q = Ende")
+    typer.echo(
+        "SPACE = sprechen/stoppen · r = nochmal · s = langsamer · t = Text zeigen"
+        " · f = Szenarien · w = nächstes Szenario · q = Ende"
+    )
     with connect(paths.db_path) as conn:
         init_db(conn)
         deps = SessionDeps(
@@ -227,11 +232,24 @@ def talk_command(
             rng=rng,
             now_iso=lambda: datetime.now(UTC).isoformat(timespec="seconds"),
         )
-        cid = ConversationSession(deps, scenario=scenario, llm_label=cfg.partner_model).run()
+        cid = ConversationSession(deps, scenario=deck.label, llm_label=cfg.partner_model).run()
         turns = list_turns(conn, cid)
     median = median_freeze(turns)
     shown = f"{median:.1f}" if median is not None else "–"
     typer.echo(f"Gespräch {cid} gespeichert: {len(turns)} Turns, Median-Freeze {shown} s")
+
+
+def choose_start_scenario(deck, read, echo) -> str:
+    """Numbered scenario list before the first partner turn; Enter alone = all mixed."""
+    for i, name in enumerate(deck.options()):
+        echo(f"  {i:2}  {name}")
+    while True:
+        answer = read("Szenario-Nummer (Enter = alle gemischt): ").strip()
+        if not answer:
+            return deck.choose(0)
+        if answer.isdigit() and int(answer) < len(deck.options()):
+            return deck.choose(int(answer))
+        echo(f"Keine Nummer {answer!r}.")
 
 
 def median_freeze(turns: list) -> float | None:
