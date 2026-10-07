@@ -6,9 +6,15 @@ import sqlite3
 from collections.abc import Iterable
 from pathlib import Path
 
-from self_talk_coach.domain import DateConfidence, MediaStatus, TranscriptStatus
+from self_talk_coach.domain import (
+    ConversationStatus,
+    DateConfidence,
+    MediaStatus,
+    TranscriptStatus,
+    TurnSpeaker,
+)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def connect(db_path: Path | str) -> sqlite3.Connection:
@@ -104,6 +110,41 @@ def init_db(conn: sqlite3.Connection) -> None:
             action TEXT NOT NULL,
             note TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY,
+            started_at TEXT NOT NULL,
+            ended_at TEXT,
+            scenario TEXT,
+            stt_model TEXT NOT NULL,
+            llm_model TEXT NOT NULL,
+            tts_voice TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'aborted')),
+            report_status TEXT NOT NULL DEFAULT 'pending'
+                CHECK (report_status IN ('pending', 'done', 'failed'))
+        );
+
+        CREATE TABLE IF NOT EXISTS turns (
+            id INTEGER PRIMARY KEY,
+            conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+            turn_index INTEGER NOT NULL,
+            speaker TEXT NOT NULL CHECK (speaker IN ('learner', 'partner')),
+            text TEXT NOT NULL,
+            audio_path TEXT,
+            words_json TEXT,
+            seed TEXT,
+            partner_turn_json TEXT,
+            llm_model TEXT,
+            freeze_seconds REAL,
+            ladder_step_reached INTEGER NOT NULL DEFAULT 0,
+            replay_count INTEGER NOT NULL DEFAULT 0,
+            slower_count INTEGER NOT NULL DEFAULT 0,
+            show_text_count INTEGER NOT NULL DEFAULT 0,
+            comprehension_check INTEGER NOT NULL DEFAULT 0,
+            out_of_baseline_ratio REAL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE (conversation_id, turn_index)
         );
         """
     )
@@ -284,3 +325,93 @@ def update_media_file_status(
         """,
         (status.value, error_message, media_file_id),
     )
+
+
+def insert_conversation(
+    conn: sqlite3.Connection,
+    *,
+    started_at: str,
+    scenario: str | None,
+    stt_model: str,
+    llm_model: str,
+    tts_voice: str,
+) -> int:
+    cursor = conn.execute(
+        """
+        INSERT INTO conversations (started_at, scenario, stt_model, llm_model, tts_voice, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (started_at, scenario, stt_model, llm_model, tts_voice, ConversationStatus.ACTIVE.value),
+    )
+    conn.commit()
+    return int(cursor.lastrowid)
+
+
+def finish_conversation(
+    conn: sqlite3.Connection, conversation_id: int, *, ended_at: str, status: ConversationStatus
+) -> None:
+    conn.execute(
+        "UPDATE conversations SET ended_at = ?, status = ? WHERE id = ?",
+        (ended_at, status.value, conversation_id),
+    )
+    conn.commit()
+
+
+def get_conversation(conn: sqlite3.Connection, conversation_id: int) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+
+
+def insert_turn(
+    conn: sqlite3.Connection,
+    *,
+    conversation_id: int,
+    turn_index: int,
+    speaker: TurnSpeaker,
+    text: str,
+    audio_path: str | None = None,
+    words_json: str | None = None,
+    seed: str | None = None,
+    partner_turn_json: str | None = None,
+    llm_model: str | None = None,
+    freeze_seconds: float | None = None,
+) -> int:
+    cursor = conn.execute(
+        """
+        INSERT INTO turns (
+            conversation_id, turn_index, speaker, text, audio_path, words_json,
+            seed, partner_turn_json, llm_model, freeze_seconds
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            conversation_id, turn_index, speaker.value, text, audio_path, words_json,
+            seed, partner_turn_json, llm_model, freeze_seconds,
+        ),
+    )
+    conn.commit()
+    return int(cursor.lastrowid)
+
+
+def update_turn_listening(
+    conn: sqlite3.Connection,
+    turn_id: int,
+    *,
+    ladder_step_reached: int,
+    replay_count: int,
+    slower_count: int,
+    show_text_count: int,
+) -> None:
+    conn.execute(
+        """
+        UPDATE turns
+        SET ladder_step_reached = ?, replay_count = ?, slower_count = ?, show_text_count = ?
+        WHERE id = ?
+        """,
+        (ladder_step_reached, replay_count, slower_count, show_text_count, turn_id),
+    )
+    conn.commit()
+
+
+def list_turns(conn: sqlite3.Connection, conversation_id: int) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM turns WHERE conversation_id = ? ORDER BY turn_index", (conversation_id,)
+    ).fetchall()

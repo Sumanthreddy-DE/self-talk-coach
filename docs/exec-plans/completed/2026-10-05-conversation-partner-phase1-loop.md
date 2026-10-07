@@ -1,7 +1,7 @@
 # Conversation Partner — Phase 1 (Storage + Live Loop) Implementation Plan
 
-**Status:** active
-**Last verified:** 2026-10-05
+**Status:** done
+**Last verified:** 2026-10-07
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1321,7 +1321,7 @@ bash scripts/lint-arch.sh && .venv/Scripts/python -m pytest -q && git add src/se
   - Protocols `Clock` (`now() -> float`, `sleep(seconds: float) -> None`), `KeyInput` (`poll() -> str | None`), `Recorder` (`start() -> None`, `stop() -> numpy.ndarray`), `Player` (`play(audio: bytes) -> None`)
   - `SessionDeps` dataclass: `partner, transcriber, voice, player, recorder, keys, clock, picker, conn, paths, ladder: LadderTimings, rng: random.Random, store_audio: Callable[[bytes, Path], None] = encode_opus, out: Callable[[str], None] = print, now_iso: Callable[[], str]`
   - `ConversationSession(deps: SessionDeps, scenario: str | None, llm_label: str)` with `run() -> int` (conversation id)
-  - Keys: SPACE start/stop speaking, `r` replay, `s` slower, `t` show partner text, `q` quit (only while waiting to speak)
+  - Keys: SPACE start/stop speaking, `r` replay, `s` slower, `t` show partner text, `q` quit — all keys also work while the partner speaks: SPACE/q/r/s cut playback, `t` shows text without stopping (changed 2026-10-06 after the real-use test)
   - `PARDON = "Wie bitte? Kannst du das nochmal sagen?"`; `MIN_SPEECH_SECONDS = 0.4`
 
 - [ ] **Step 1: Write the failing test**
@@ -2098,7 +2098,7 @@ bash scripts/lint-arch.sh && git add src/self_talk_coach/conversation/audio_io.p
 2. Create `data/learner-profile.md` (gitignored) with a few plain lines, e.g. level, city, job/shift pattern, current goal. The learner writes the content.
 3. Headset plugged in and set as Windows default input/output.
 
-- [ ] **Step 7: First real conversation (user, Windows PowerShell)**
+- [x] **Step 7: First real conversation (user, Windows PowerShell)**
 
 Run: `& "C:\Users\suman\Desktop\Docs\Job\Projects\self-talk-coach\.venv\Scripts\stc.exe" talk`
 Exercise once each: answer normally; stay silent ≥ 13 s (hear nudge, starter, simpler question); press `r`, `s`, `t`; make a deliberate error (expect a second-person recast); quit with `q`.
@@ -2107,7 +2107,7 @@ Expected: final line `Gespräch <id> gespeichert: <n> Turns, Median-Freeze <x> s
 Verify storage: `.venv/Scripts/python -c "import sqlite3;c=sqlite3.connect('data/db/self_talk_coach.sqlite');print(c.execute('select speaker,freeze_seconds,ladder_step_reached,replay_count,slower_count,show_text_count,llm_model,substr(text,1,50) from turns order by id desc limit 8').fetchall())"`
 Expected: alternating partner/learner rows, counts matching what was pressed.
 
-- [ ] **Step 8: Record outcome**
+- [x] **Step 8: Record outcome**
 
 Append to the spec's `## Spike results` section a `Phase 1 first conversation (date)` line: what worked, latency feel, any bug found. Bugs → BACKLOG with severity. Set this plan `**Status:** done`. Commit:
 

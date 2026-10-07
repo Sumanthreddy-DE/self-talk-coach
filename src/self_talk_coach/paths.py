@@ -60,6 +60,17 @@ class AppPaths:
     def exports_reports(self) -> Path:
         return self.exports_root / "reports"
 
+    @property
+    def conversations_root(self) -> Path:
+        return self.data_root / "conversations"
+
+    def conversation_dir(self, conversation_id: int) -> Path:
+        return self.conversations_root / f"{conversation_id:04d}"
+
+    @property
+    def learner_profile_path(self) -> Path:
+        return self.data_root / "learner-profile.md"
+
     def ensure_workspace(self) -> None:
         for directory in (
             self.db_path.parent,
@@ -71,5 +82,6 @@ class AppPaths:
             self.exports_transcripts,
             self.exports_anki,
             self.exports_reports,
+            self.conversations_root,
         ):
             directory.mkdir(parents=True, exist_ok=True)

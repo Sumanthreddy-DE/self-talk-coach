@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import statistics
 from pathlib import Path
 from typing import Annotated
 
@@ -145,3 +146,92 @@ def export_transcripts_command(
         )
 
     typer.echo(f"Exported transcripts: {len(exported_paths)}")
+
+
+@app.command("talk")
+def talk_command(
+    scenario: Annotated[
+        str | None,
+        typer.Option("--scenario", help="Section name (substring) from the question banks."),
+    ] = None,
+    data_root: Annotated[
+        Path, typer.Option("--data-root", help="Application data root.")
+    ] = Path("data"),
+) -> None:
+    """Start a spoken German conversation with the AI partner."""
+    import os
+    import random
+    from datetime import UTC, datetime
+
+    from dotenv import load_dotenv
+
+    from self_talk_coach.conversation.audio_io import (
+        ConsoleKeys,
+        MicRecorder,
+        RealClock,
+        SpeakerPlayer,
+    )
+    from self_talk_coach.conversation.config import ConfigError, TalkConfig
+    from self_talk_coach.conversation.partner import (
+        OpenAIChatClient,
+        Partner,
+        build_system_prompt,
+    )
+    from self_talk_coach.conversation.question_bank import (
+        SeedPicker,
+        filter_scenario,
+        load_banks,
+    )
+    from self_talk_coach.conversation.session import ConversationSession, SessionDeps
+    from self_talk_coach.conversation.stt import DeepgramTranscriber
+    from self_talk_coach.conversation.tts import EdgeVoice
+    from self_talk_coach.db import list_turns
+
+    load_dotenv()
+    try:
+        cfg = TalkConfig.from_env(os.environ)
+        seeds = filter_scenario(load_banks(cfg.question_banks), scenario)
+    except (ConfigError, FileNotFoundError, ValueError) as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    paths = AppPaths.from_data_root(data_root)
+    paths.ensure_workspace()
+    profile_path = paths.learner_profile_path
+    profile = profile_path.read_text(encoding="utf-8") if profile_path.is_file() else None
+    rng = random.Random()
+    partner = Partner(
+        OpenAIChatClient(cfg.gateway_base_url, cfg.gateway_api_key),
+        cfg.partner_model,
+        cfg.fallback_model,
+        build_system_prompt(profile),
+    )
+    typer.echo("SPACE = sprechen/stoppen · r = nochmal · s = langsamer · t = Text zeigen · q = Ende")
+    with connect(paths.db_path) as conn:
+        init_db(conn)
+        deps = SessionDeps(
+            partner=partner,
+            transcriber=DeepgramTranscriber(cfg.deepgram_api_key),
+            voice=EdgeVoice(cfg.tts_voice),
+            player=SpeakerPlayer(),
+            recorder=MicRecorder(),
+            keys=ConsoleKeys(),
+            clock=RealClock(),
+            picker=SeedPicker(seeds, rng),
+            conn=conn,
+            paths=paths,
+            ladder=cfg.ladder,
+            rng=rng,
+            now_iso=lambda: datetime.now(UTC).isoformat(timespec="seconds"),
+        )
+        cid = ConversationSession(deps, scenario=scenario, llm_label=cfg.partner_model).run()
+        turns = list_turns(conn, cid)
+    median = median_freeze(turns)
+    shown = f"{median:.1f}" if median is not None else "–"
+    typer.echo(f"Gespräch {cid} gespeichert: {len(turns)} Turns, Median-Freeze {shown} s")
+
+
+def median_freeze(turns: list) -> float | None:
+    """Median of the recorded learner freezes; None when no turn has one."""
+    freezes = [t["freeze_seconds"] for t in turns if t["freeze_seconds"] is not None]
+    return statistics.median(freezes) if freezes else None
