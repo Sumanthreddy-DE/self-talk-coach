@@ -63,3 +63,11 @@ def test_picker_never_repeats_until_exhausted() -> None:
     first_round = [picker.next() for _ in range(4)]
     assert sorted(s.text for s in first_round) == sorted(s.text for s in seeds)
     assert picker.next() in seeds
+
+
+def test_mark_phrase_sections_matches_section_names_case_insensitively() -> None:
+    from self_talk_coach.conversation.question_bank import mark_phrase_sections
+
+    seeds = mark_phrase_sections(parse_bank(BANK), ("daily life",))
+    assert {s.section: s.phrase for s in seeds} == {"Interview: Core": False, "Daily Life In Germany": True}
+    assert all(not s.phrase for s in mark_phrase_sections(parse_bank(BANK), ()))

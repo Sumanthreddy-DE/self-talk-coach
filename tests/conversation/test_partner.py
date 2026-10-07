@@ -154,3 +154,14 @@ def test_system_prompt_guards_phrase_seeds_and_repeat_requests() -> None:
     assert "Erfinde nie" in prompt  # no claims the learner never made
     assert "Rolle" in prompt  # phrase seeds become a role-play situation
     assert "Wie bitte?" in prompt  # repeat request → repeat, simpler
+
+
+def test_phrase_seed_is_framed_as_role_play_question_seed_as_question() -> None:
+    client = FakeClient({"primary": [json.dumps(GOOD), json.dumps(GOOD)]})
+    partner = Partner(client, "primary", "fallback", "SYS")
+    partner.opening("Bis wann soll ich das fertig machen?", section="Office German", phrase=True)
+    content = client.calls[-1][1][-1]["content"]
+    assert "Rollenspiel" in content and "nicht selbst" in content
+    assert "Bis wann soll ich das fertig machen?" in content
+    partner.respond("Ja.", "Wie gehen Sie mit Fehlern um?", section="Interview: Core")
+    assert "Frage an den Lerner" in client.calls[-1][1][-1]["content"]

@@ -33,3 +33,10 @@ def test_missing_required_names_the_variable(missing: str) -> None:
     env = {k: v for k, v in BASE.items() if k != missing}
     with pytest.raises(ConfigError, match=missing):
         TalkConfig.from_env(env)
+
+
+def test_phrase_sections_default_and_override() -> None:
+    assert TalkConfig.from_env(BASE).phrase_sections == ("Daily Life In Germany", "Office German")
+    cfg = TalkConfig.from_env({**BASE, "STC_PHRASE_SECTIONS": " Beim Arzt ; ;Office "})
+    assert cfg.phrase_sections == ("Beim Arzt", "Office")
+    assert TalkConfig.from_env({**BASE, "STC_PHRASE_SECTIONS": ""}).phrase_sections == ()

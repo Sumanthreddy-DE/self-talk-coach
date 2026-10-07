@@ -181,6 +181,7 @@ def talk_command(
         SeedPicker,
         filter_scenario,
         load_banks,
+        mark_phrase_sections,
     )
     from self_talk_coach.conversation.session import ConversationSession, SessionDeps
     from self_talk_coach.conversation.stt import DeepgramTranscriber
@@ -190,7 +191,9 @@ def talk_command(
     load_dotenv()
     try:
         cfg = TalkConfig.from_env(os.environ)
-        seeds = filter_scenario(load_banks(cfg.question_banks), scenario)
+        seeds = mark_phrase_sections(
+            filter_scenario(load_banks(cfg.question_banks), scenario), cfg.phrase_sections
+        )
     except (ConfigError, FileNotFoundError, ValueError) as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc

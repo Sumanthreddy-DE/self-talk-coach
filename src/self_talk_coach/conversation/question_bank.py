@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 _ITEM = re.compile(r"^\s*\d+\.\s+(.+?)\s*$")
@@ -15,6 +15,7 @@ _ITEM = re.compile(r"^\s*\d+\.\s+(.+?)\s*$")
 class Seed:
     section: str
     text: str
+    phrase: bool = False  # a sentence the learner should say, not a question for the learner
 
 
 def parse_bank(markdown: str) -> list[Seed]:
@@ -39,6 +40,12 @@ def load_banks(paths: Sequence[Path]) -> list[Seed]:
             raise FileNotFoundError(f"Question bank not found: {path}")
         seeds.extend(parse_bank(path.read_text(encoding="utf-8")))
     return seeds
+
+
+def mark_phrase_sections(seeds: Sequence[Seed], section_names: Sequence[str]) -> list[Seed]:
+    """Flag seeds whose section name contains one of `section_names` (case-insensitive)."""
+    wanted = [name.lower() for name in section_names]
+    return [replace(s, phrase=any(w in s.section.lower() for w in wanted)) for s in seeds]
 
 
 def filter_scenario(seeds: Sequence[Seed], scenario: str | None) -> list[Seed]:

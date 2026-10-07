@@ -8,6 +8,8 @@ from pathlib import Path
 
 from self_talk_coach.conversation.help_ladder import LadderTimings
 
+# Bank sections holding phrases the learner should say; the partner role-plays a situation for them.
+_DEFAULT_PHRASE_SECTIONS = "Daily Life In Germany;Office German"
 _REQUIRED = ("DEEPGRAM_API_KEY", "GATEWAY_BASE_URL", "GATEWAY_API_KEY", "STC_QUESTION_BANKS")
 
 
@@ -25,6 +27,7 @@ class TalkConfig:
     tts_voice: str
     question_banks: tuple[Path, ...]
     ladder: LadderTimings
+    phrase_sections: tuple[str, ...]
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> TalkConfig:
@@ -44,4 +47,9 @@ class TalkConfig:
             tts_voice=env.get("STC_TTS_VOICE", "de-DE-SeraphinaMultilingualNeural"),
             question_banks=tuple(Path(p.strip()) for p in env["STC_QUESTION_BANKS"].split(";") if p.strip()),
             ladder=ladder,
+            phrase_sections=tuple(
+                name.strip()
+                for name in env.get("STC_PHRASE_SECTIONS", _DEFAULT_PHRASE_SECTIONS).split(";")
+                if name.strip()
+            ),
         )

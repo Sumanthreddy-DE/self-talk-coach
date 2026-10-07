@@ -125,8 +125,15 @@ def parse_partner_turn(raw: str) -> PartnerTurn:
         raise PartnerFormatError(str(exc)) from exc
 
 
-def _impulse(seed: str, section: str) -> str:
-    return f"Impuls (Bereich: {section}): {seed}" if section else f"Impuls: {seed}"
+def _impulse(seed: str, section: str, phrase: bool = False) -> str:
+    where = f" (Bereich: {section})" if section else ""
+    if phrase:
+        return (
+            f"Rollenspiel-Impuls{where}: Der Lerner soll gleich selbst so etwas sagen wie \"{seed}\". "
+            "Übernimm eine passende Rolle, schaff die Situation und stell eine Frage, auf die er so antworten muss. "
+            "Sprich diesen Satz nicht selbst aus."
+        )
+    return f"Frage an den Lerner{where}: {seed}"
 
 
 def fallback_reply(seed: str) -> PartnerReply:
@@ -151,13 +158,13 @@ class Partner:
         self._max_history = max_history
         self.history: list[dict[str, str]] = []
 
-    def opening(self, seed: str, section: str = "") -> PartnerReply:
+    def opening(self, seed: str, section: str = "", phrase: bool = False) -> PartnerReply:
         return self._turn(
-            f"Beginne das Gespräch mit einer kurzen Begrüßung und einer Frage.\n{_impulse(seed, section)}"
+            f"Beginne das Gespräch mit einer kurzen Begrüßung und einer Frage.\n{_impulse(seed, section, phrase)}"
         )
 
-    def respond(self, learner_text: str, seed: str, section: str = "") -> PartnerReply:
-        return self._turn(f"Lerner: {learner_text}\n{_impulse(seed, section)}")
+    def respond(self, learner_text: str, seed: str, section: str = "", phrase: bool = False) -> PartnerReply:
+        return self._turn(f"Lerner: {learner_text}\n{_impulse(seed, section, phrase)}")
 
     def _turn(self, user_content: str) -> PartnerReply:
         user = {"role": "user", "content": user_content}
