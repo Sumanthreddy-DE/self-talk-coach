@@ -149,9 +149,11 @@ class ConversationSession:
         seed = picked.text
         try:
             if opening:
-                reply = self._d.partner.opening(seed, section=picked.section)
+                reply = self._d.partner.opening(seed, section=picked.section, phrase=picked.phrase)
             else:
-                reply = self._d.partner.respond(learner_text, seed, section=picked.section)
+                reply = self._d.partner.respond(
+                    learner_text, seed, section=picked.section, phrase=picked.phrase
+                )
         except PartnerUnavailable as exc:
             self._d.status(f"[Hinweis] KI-Partner nicht erreichbar, ich lese die Frage aus der Liste vor. Grund: {str(exc)[:160]}")
             reply = fallback_reply(seed)

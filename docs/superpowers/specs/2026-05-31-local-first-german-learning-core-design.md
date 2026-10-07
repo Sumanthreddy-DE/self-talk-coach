@@ -1,7 +1,11 @@
 # Local-First German Learning Core Design
 
+**Status:** done
+**Last verified:** 2026-09-07
+**Status evidence:** design document produced; self-talk-coach STATE.md Done lists the shipped slices + 3 ADRs
+
 **Date:** 2026-05-31
-**Status:** Approved direction, pending implementation plan
+
 **Project:** self-talk-coach
 
 ## Purpose

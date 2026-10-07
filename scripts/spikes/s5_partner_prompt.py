@@ -46,11 +46,18 @@ SCENARIOS = [
 ]
 
 
+PHRASE_SECTIONS = (DAILY, OFFICE)  # mirrors the STC_PHRASE_SECTIONS default
+
+
 def _call(fn, *args, section: str):
-    # Lets the same script run before and after Partner learned about sections.
-    if "section" in inspect.signature(fn).parameters:
-        return fn(*args, section=section)
-    return fn(*args)
+    # Lets the same script run before and after Partner learned about sections and phrase seeds.
+    params = inspect.signature(fn).parameters
+    kwargs = {}
+    if "section" in params:
+        kwargs["section"] = section
+    if "phrase" in params:
+        kwargs["phrase"] = section in PHRASE_SECTIONS
+    return fn(*args, **kwargs)
 
 
 def main() -> None:
