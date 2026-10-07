@@ -163,6 +163,8 @@ Findings carried into Phase 1:
 - **Cost:** STT on Deepgram's $200 signup credit (per-minute price not captured — page renders dynamically); TTS free; LLM within prepaid gateway quota. €5/month target not exceeded by any measured component.
 - **Privacy:** learner audio now leaves the laptop (Deepgram). Check Deepgram's data-retention / model-improvement opt-out in their docs before daily use.
 
+**Phase 1 first conversation (2026-10-05 → 2026-10-07).** First real run 2026-10-05 (27 turns) found the SPACE-buffer bug and the silent LLM fallback; both fixed. Verification runs 2026-10-06/07 (conversations 5–9) on DeepSeek V4 Pro via dlabkeys: every turn answered by the primary model (no fallback), ~3 s per LLM turn, recasts are second-person, audio + turns stored per turn, help ladder reaches step 3 on silence, `r`/`t` counted. Bugs found and fixed: keys were ignored while the partner spoke (playback blocked on `sd.wait()`, keys flushed) → keyboard interrupt added, SPACE/q/r/s cut playback, `t` reads along, stop via `stream.abort()` (36b436d); freeze median took the upper element for even counts (1e875a9). Interrupt confirmed live with key-level instrumentation (SPACE → recording at 1.1 s, q → end at 2.2 s). Prompt issues → BACKLOG: partner attributes phrase seeds to the learner (`bank-phrase-vs-question`), recast + reply say the same thing twice (`recast-reply-duplicate`). GLM-5.3 on the gateway returned empty content on a 20-token probe — not a fallback candidate as-is.
+
 ## Testing
 
 - Unit: help ladder state machine, question-bank parser + picker (no-repeat, freeze boost), `PartnerTurn` parsing (valid / malformed JSON), DB migration + turn persistence, metrics, report assembly — all with fakes for STT/LLM/TTS/audio.
