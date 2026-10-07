@@ -9,7 +9,7 @@ from pathlib import Path
 from self_talk_coach.conversation.help_ladder import LadderTimings
 
 # Bank sections holding phrases the learner should say; the partner role-plays a situation for them.
-_DEFAULT_PHRASE_SECTIONS = "Daily Life In Germany;Office German"
+_DEFAULT_PHRASE_SECTIONS = "Daily Life In Germany;Office German;Szenario"
 _REQUIRED = ("DEEPGRAM_API_KEY", "GATEWAY_BASE_URL", "GATEWAY_API_KEY", "STC_QUESTION_BANKS")
 
 

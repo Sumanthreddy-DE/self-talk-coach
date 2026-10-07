@@ -178,8 +178,7 @@ def talk_command(
         build_system_prompt,
     )
     from self_talk_coach.conversation.question_bank import (
-        SeedPicker,
-        filter_scenario,
+        ScenarioDeck,
         load_banks,
         mark_phrase_sections,
     )
@@ -189,10 +188,11 @@ def talk_command(
     from self_talk_coach.db import list_turns
 
     load_dotenv()
+    rng = random.Random()
     try:
         cfg = TalkConfig.from_env(os.environ)
-        seeds = mark_phrase_sections(
-            filter_scenario(load_banks(cfg.question_banks), scenario), cfg.phrase_sections
+        deck = ScenarioDeck(
+            mark_phrase_sections(load_banks(cfg.question_banks), cfg.phrase_sections), scenario, rng
         )
     except (ConfigError, FileNotFoundError, ValueError) as exc:
         typer.echo(f"Error: {exc}", err=True)
@@ -202,14 +202,14 @@ def talk_command(
     paths.ensure_workspace()
     profile_path = paths.learner_profile_path
     profile = profile_path.read_text(encoding="utf-8") if profile_path.is_file() else None
-    rng = random.Random()
     partner = Partner(
         OpenAIChatClient(cfg.gateway_base_url, cfg.gateway_api_key),
         cfg.partner_model,
         cfg.fallback_model,
         build_system_prompt(profile),
     )
-    typer.echo("SPACE = sprechen/stoppen · r = nochmal · s = langsamer · t = Text zeigen · q = Ende")
+    typer.echo(f"Szenario: {deck.label}")
+    typer.echo("SPACE = sprechen/stoppen · r = nochmal · s = langsamer · t = Text zeigen · w = Szenario wechseln · q = Ende")
     with connect(paths.db_path) as conn:
         init_db(conn)
         deps = SessionDeps(
@@ -220,7 +220,7 @@ def talk_command(
             recorder=MicRecorder(),
             keys=ConsoleKeys(),
             clock=RealClock(),
-            picker=SeedPicker(seeds, rng),
+            picker=deck,
             conn=conn,
             paths=paths,
             ladder=cfg.ladder,

@@ -36,7 +36,7 @@ def test_missing_required_names_the_variable(missing: str) -> None:
 
 
 def test_phrase_sections_default_and_override() -> None:
-    assert TalkConfig.from_env(BASE).phrase_sections == ("Daily Life In Germany", "Office German")
+    assert TalkConfig.from_env(BASE).phrase_sections == ("Daily Life In Germany", "Office German", "Szenario")
     cfg = TalkConfig.from_env({**BASE, "STC_PHRASE_SECTIONS": " Beim Arzt ; ;Office "})
     assert cfg.phrase_sections == ("Beim Arzt", "Office")
     assert TalkConfig.from_env({**BASE, "STC_PHRASE_SECTIONS": ""}).phrase_sections == ()
