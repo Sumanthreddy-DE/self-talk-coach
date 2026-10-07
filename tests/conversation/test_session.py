@@ -92,12 +92,15 @@ class FakePartner:
     def __init__(self, replies: list) -> None:
         self.replies = list(replies)
         self.learner_texts: list[str] = []
+        self.sections: list[str] = []
 
-    def opening(self, seed: str) -> PartnerReply:
+    def opening(self, seed: str, section: str = "") -> PartnerReply:
+        self.sections.append(section)
         return self._next()
 
-    def respond(self, learner_text: str, seed: str) -> PartnerReply:
+    def respond(self, learner_text: str, seed: str, section: str = "") -> PartnerReply:
         self.learner_texts.append(learner_text)
+        self.sections.append(section)
         return self._next()
 
     def _next(self) -> PartnerReply:
@@ -153,6 +156,7 @@ def test_full_exchange_with_ladder_aids_and_quit(tmp_path: Path) -> None:
     assert first["replay_count"] == 1 and first["show_text_count"] == 1 and first["slower_count"] == 1
     assert first["ladder_step_reached"] == 1  # nudge at 4 s, spoke at 5 s
     assert learner["freeze_seconds"] == 5.0
+    assert deps.partner.sections == ["S", "S"]  # bank section travels with each seed
     assert learner["text"] == "Gestern ich habe gearbeitet."
     assert second["text"] == "Ah, du hast gestern gearbeitet? Bis wann?"
     assert second["seed"] is not None
