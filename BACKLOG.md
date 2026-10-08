@@ -32,7 +32,6 @@ _(none yet)_
 - llm-provider-reliability - dlabkeys gateway grants credits daily; on 2026-10-05 the day's credits ran out (429 "hobbyist plan has expired … Free tier") after spikes + tests. gpt-6-luna/sol listed but unavailable. Free-tier `space-bunny` returned empty content in 2/3 turns. Decide: renewed dlabkeys vs official DeepSeek API (config-only switch). Consider a startup preflight call so `stc talk` fails fast instead of falling back every turn. 2026-10-06: credits back, DeepSeek V4 Pro + Sonnet 5 answer in ~2.5 s; `glm-5-3` returned empty content on a 20-token probe.
 - web-ui - Browser frontend for the conversation partner after terminal v1 (also the cheapest path to phone use over LAN). Candidate: Chainlit (Apache-2.0, 12.5k★, community-maintained since 2025-05). Its cookbook `openai-whisper` example (mic → whisper → LLM → ElevenLabs) matches our loop, but the cookbook has no license (ideas only) and was last pushed 2025-08. Needs: hidden partner text, help-ladder timers, freeze-time capture in the browser.
 - vocab-miner - Session report (Phase 2) promises "new useful words (existing miner against the baseline)", but no miner exists: `src/self_talk_coach/mine.py` is a stub. Build it for the report. Design to reuse: weekend-MVP blueprint S4 (`docs/exec-plans/active/2026-05-28-weekend-mvp.md`, abandoned): spaCy POS filter NOUN/VERB/ADJ/ADV, drop stopwords/PER/LOC/ORG, lowercase compare, `freq >= 2` against STT noise, keep best example sentence + timestamp, optional `resources/ignore.txt` filler list.
-- mixed-language-stt - Learner sometimes speaks English mid-practice; STT is `language=de`, so English comes out as garbled German. Test Deepgram Nova-3 `language=multi` vs `de` on saved learner audio (`data/conversations/*/turn-*-learner.opus`): does it transcribe English parts, and does it still keep learner grammar errors verbatim (ADR 0005)? Then pick the setting; partner could answer "Wie sagt man X auf Deutsch?". *(found 2026-10-08, self-talk-coach session)*
 - mein-tag-mode - Free "Mein Tag" mode: learner narrates the day at length (German, some English), partner only asks short follow-ups, session report lists mistakes and better phrasings afterwards. Design together with the Phase 2 session report. *(found 2026-10-08, self-talk-coach session)*
 - plan-location - Plans/spec live in `docs/superpowers/` (blocked for new files by harness hook). Decide: move M1/M2 plans to `docs/exec-plans/completed/`, M3 plan + spec to `docs/exec-plans/`. Separate decision from the 2026-09-28 status triage.
 
@@ -54,8 +53,9 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ---
 
-## Done this session (2026-06-01, 2026-10-07)
+## Done this session (2026-06-01, 2026-10-07, 2026-10-08)
 
+- mixed-language-stt - Tested 2026-10-08 with `scripts/spikes/s6_multi_language.py` (43 files): `multi` kept 3/10 S1 errors (de 10/10) and turned 8/28 real learner turns into English/Hindi/Spanish nonsense; `de` already writes English words as English (9/10 on synthetic mixed speech). Decision: keep `language=de`. Optional: learner records `s6 record` for an own-accent English check.
 - readme-stale - README rewritten for `stc talk` + self-talk library, MIT LICENSE added; repo made public 2026-10-07 (5589d14)
 - bank-phrase-vs-question - Phrase sections set in config (`STC_PHRASE_SECTIONS`, default Daily Life In Germany; Office German), seeds sent as role-play impulses. s5 eval 3 runs: partner never says the phrase itself (was 2/3 office openings), no invented learner claims. Bank files untouched.
 - uncommitted-backfill-headers - Weekend-MVP blueprint → abandoned (designs carried to `vocab-miner`, `anki-export`); core-design spec → done. Committed 2026-10-07.
