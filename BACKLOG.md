@@ -43,6 +43,7 @@ _(none yet)_
 
 
 ---
+- stale-state-doing - `STATE.md` Doing/Resume still say `feat/conversation-loop` awaits merge, but `main` already contains it (57e8348). Next session here: refresh Doing + Resume here from git log. *(found 2026-10-08, claude-lab session)*
 
 ## Doing
 
