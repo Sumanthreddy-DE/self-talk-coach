@@ -39,11 +39,10 @@ _(none yet)_
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
 - anki-export - Approved practice items → Anki `.apkg` (genanki), planned in the core design (`stc export anki`). Design to reuse: weekend-MVP blueprint S5 — structured enrich prompt (DE definition, EN translation, gender/separable-prefix, example from the learner's own sentence), prompt caching with the 1024-token prefix minimum (assert `cache_creation_input_tokens > 0` then `cache_read_input_tokens > 0`), `--max-cards` cost cap.
-- readme-stale - README advertises `stc mine` / `stc enrich` and a video→Anki pipeline that was never built; `stc talk` is missing. Rewrite after Phase 2. Stubs `mine.py`/`enrich.py`/`anki.py` stay until `vocab-miner` / `anki-export` fill them.
+- stale-state-doing - `STATE.md` Doing/Resume still say `feat/conversation-loop` awaits merge, but `main` already contains it (57e8348). Next session here: refresh Doing + Resume here from git log. *(found 2026-10-08, claude-lab session)*
 
 
 ---
-- stale-state-doing - `STATE.md` Doing/Resume still say `feat/conversation-loop` awaits merge, but `main` already contains it (57e8348). Next session here: refresh Doing + Resume here from git log. *(found 2026-10-08, claude-lab session)*
 
 ## Doing
 
@@ -53,6 +52,7 @@ _(items currently being worked — move from Open when started, back to Open if 
 
 ## Done this session (2026-06-01, 2026-10-07)
 
+- readme-stale - README rewritten for `stc talk` + self-talk library, MIT LICENSE added; repo made public 2026-10-07 (5589d14)
 - bank-phrase-vs-question - Phrase sections set in config (`STC_PHRASE_SECTIONS`, default Daily Life In Germany; Office German), seeds sent as role-play impulses. s5 eval 3 runs: partner never says the phrase itself (was 2/3 office openings), no invented learner claims. Bank files untouched.
 - uncommitted-backfill-headers - Weekend-MVP blueprint → abandoned (designs carried to `vocab-miner`, `anki-export`); core-design spec → done. Committed 2026-10-07.
 - recast-reply-duplicate - Prompt rule + code guard `_drop_recast_echo` (reply sentence ≥ 60 % recast words, W-questions exempt); s5 eval: 0 spoken echoes (was 6/6).
