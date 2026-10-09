@@ -3,7 +3,7 @@
 **Status:** active
 **Last verified:** 2026-10-08
 **Spec:** `docs/exec-plans/active/2026-10-04-conversation-partner-design.md` § Session report, § Data flow 5, § Metrics
-**Approved by user:** not yet — no code before approval.
+**Approved by user:** 2026-10-09 (execution in a separate session).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
