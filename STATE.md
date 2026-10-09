@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Do not hand-edit. -->
 
 Status: active
-Last touched: 2026-10-08
+Last touched: 2026-10-09
 
 ## What
 German speaking coach: live voice conversation partner (`stc talk`, role-play scenarios, help ladder) plus a local library of self-talk recordings and transcripts. Weekend-MVP blueprint abandoned 2026-10-07. Public repo Sumanthreddy-DE/self-talk-coach (made public 2026-10-07, MIT; README rewritten the same day). Projects-level repo — sessions launch from THIS folder.
@@ -19,16 +19,17 @@ German speaking coach: live voice conversation partner (`stc talk`, role-play sc
 - 2026-09-28: triaged plan headers — M1/M2 plans done, M3 first-language-analysis paused
 - 2026-10-04/05: live conversation partner designed (spec + ADR 0004/0005), Phase 0 spikes done (Deepgram STT, edge-tts Seraphina, DeepSeek→Sonnet), Phase 1 `stc talk` built on `feat/conversation-loop` — 85 tests; first real conversation (27 turns); SPACE-buffer + silent-fallback bugs fixed
 - 2026-10-06/08: Phase 1 verified live on DeepSeek V4 Pro and merged (plan → completed/); keys interrupt partner speech (36b436d); partner prompt fixes — no invented claims, recast-echo guard, repeat on "Wie bitte?", phrase seeds as role-play (9f362d7, a8c2c5c); scenario menu `f` + `w` + start menu (0897d14, 9f2cfe8); McDonald's + cold-call scenario bank in Myself; 108 tests
+- 2026-10-08/09: Deepgram `language=multi` tested and rejected (s6 spike: corrected 7/10 learner errors, garbled 8/28 real turns), keep `de` (fead0b8); Phase 2 plan written + approved (e3bf658, 89eec43)
 
 ## Doing
-- Daily practice with `stc talk` (scenario menu, McDonald's/cold-call role-plays); next build: Phase 2 session report
+- Phase 2 plan approved (`docs/exec-plans/active/2026-10-08-phase2-report-mein-tag.md`): session report, comprehension check, Mein Tag — execution on branch `feat/phase2-report` in a separate session
 
 ## Pipeline
 - M3 first-language-analysis (plan written 5f7670a, not started — no `analyze.py`)
 - review-queue (BACKLOG S2)
 
 ## Resume here
-User practises one scenario (`.\.venv\Scripts\stc.exe talk` → 6/7 McDonald's, try `f`/`w`); then test Deepgram `language=multi` on saved learner audio (BACKLOG `mixed-language-stt`); then write Phase 2 plan (session report + Mein Tag + comprehension check + vocab-miner).
+User installs spaCy `de_core_news_lg`; then execute the Phase 2 plan Task 1→11 on `feat/phase2-report` (superpowers:executing-plans). Learner still to practise a McDonald's scenario.
 
 ## Landmines
 - `stc talk` needs a real Windows console (msvcrt keys) and the repo root as cwd (`data/` is relative).
