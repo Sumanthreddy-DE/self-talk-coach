@@ -28,6 +28,8 @@ class TalkConfig:
     question_banks: tuple[Path, ...]
     ladder: LadderTimings
     phrase_sections: tuple[str, ...]
+    report_model: str
+    mein_tag_ladder: LadderTimings
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> TalkConfig:
@@ -38,6 +40,10 @@ class TalkConfig:
             ladder = LadderTimings.from_csv(env.get("STC_LADDER_SECONDS", "4,8,12"))
         except ValueError as exc:
             raise ConfigError(f"STC_LADDER_SECONDS: {exc}") from exc
+        try:
+            mein_tag_ladder = LadderTimings.from_csv(env.get("STC_MEIN_TAG_LADDER_SECONDS", "15,25,35"))
+        except ValueError as exc:
+            raise ConfigError(f"STC_MEIN_TAG_LADDER_SECONDS: {exc}") from exc
         return cls(
             deepgram_api_key=env["DEEPGRAM_API_KEY"].strip(),
             gateway_base_url=env["GATEWAY_BASE_URL"].strip(),
@@ -52,4 +58,6 @@ class TalkConfig:
                 for name in env.get("STC_PHRASE_SECTIONS", _DEFAULT_PHRASE_SECTIONS).split(";")
                 if name.strip()
             ),
+            report_model=env.get("STC_REPORT_MODEL", "claude-sonnet-5"),
+            mein_tag_ladder=mein_tag_ladder,
         )

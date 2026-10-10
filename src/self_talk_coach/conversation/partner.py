@@ -96,14 +96,17 @@ class ChatClient(Protocol):
 class OpenAIChatClient:
     """OpenAI-compatible gateway client. No SDK retries: the Partner handles fallback itself."""
 
-    def __init__(self, base_url: str, api_key: str) -> None:
+    def __init__(self, base_url: str, api_key: str, *, max_tokens: int = 400, temperature: float = 0.8) -> None:
         from openai import OpenAI
 
         self._client = OpenAI(base_url=base_url, api_key=api_key, max_retries=0)
+        self._max_tokens = max_tokens
+        self._temperature = temperature
 
     def complete(self, model: str, messages: list[dict[str, str]], timeout: float) -> str:
         resp = self._client.chat.completions.create(
-            model=model, messages=messages, temperature=0.8, max_tokens=400, timeout=timeout
+            model=model, messages=messages, temperature=self._temperature,
+            max_tokens=self._max_tokens, timeout=timeout,
         )
         if not getattr(resp, "choices", None):
             raise PartnerFormatError(f"{model}: response without choices")

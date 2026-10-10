@@ -165,3 +165,20 @@ def test_phrase_seed_is_framed_as_role_play_question_seed_as_question() -> None:
     assert "Bis wann soll ich das fertig machen?" in content
     partner.respond("Ja.", "Wie gehen Sie mit Fehlern um?", section="Interview: Core")
     assert "Frage an den Lerner" in client.calls[-1][1][-1]["content"]
+
+
+def test_openai_client_passes_max_tokens_and_temperature() -> None:
+    from types import SimpleNamespace
+
+    from self_talk_coach.conversation.partner import OpenAIChatClient
+
+    seen: dict = {}
+
+    def create(**kwargs):
+        seen.update(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="{}"))])
+
+    client = OpenAIChatClient("https://gw.example/v1", "k", max_tokens=3000, temperature=0.2)
+    client._client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    assert client.complete("m", [{"role": "user", "content": "x"}], 5.0) == "{}"
+    assert seen["max_tokens"] == 3000 and seen["temperature"] == 0.2
