@@ -26,6 +26,8 @@ Last swept: 2026-05-28
 - **listening aid** – Learner request during a partner turn: replay, slower, or show text. Every use is logged.
 - **recast** – Partner repeats a learner error back in corrected form, in passing, with no explanation.
 - **session report** – Post-conversation summary built from the learner transcripts: recurring errors, freeze times, rescue phrases, listening-aid use, new words.
+- **Mein Tag** – Conversation mode where the learner narrates his day (German, some English) and the partner only asks short follow-up questions; no corrections during the talk, all in the session report. _Avoid_: diary mode, Tagebuch (that is the separate written /tagebuch practice).
+- **comprehension check** – Every 4th partner turn in a scenario conversation: the partner tells 2–3 sentences with two concrete details and asks the learner to retell them; the report scores the retelling 0–2.
 
 Relationships:
 - A **conversation** has many **turns**; each turn belongs to the learner or the partner.

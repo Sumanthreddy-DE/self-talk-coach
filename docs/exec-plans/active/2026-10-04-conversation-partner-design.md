@@ -1,7 +1,7 @@
 # Conversation partner — design spec
 
 **Status:** active
-**Last verified:** 2026-10-05
+**Last verified:** 2026-10-10
 **Origin:** brainstorm 2026-10-04 (started in claude-lab, finished here) → research brief `docs/references/2026-10-04-voice-partner-research.md` → grill-with-docs (CONTEXT.md + ADR 0004 updated).
 
 ## Goal
@@ -118,8 +118,10 @@ Built after the conversation from the stored Deepgram transcripts (v1 is single-
 - Listening aids used, per partner turn; hard partner sentences (replayed or show-text) listed for review
 - Comprehension checks: retelling accuracy (report LLM judges vs the partner's actual text)
 - New useful words (existing miner against the baseline)
-- For interview seeds: the learner's own model answer from the questionnaire
+- For interview seeds: the learner's own model answer — deferred until `interview-questionnaire-format`
 - Saved as Markdown under `data/conversations/<id>/report.md` and printed
+
+**Phase 2 (2026-10-08).** The report is built by `conversation/report.py` (ADR 0006): one report-LLM call per conversation for errors, better phrasings, English→German, rescue phrases and retell scores, every quoted learner fragment checked against the stored turn; freeze, listening aids and missed rescue chances computed in code; new words from `mine.py` (spaCy `de_core_news_lg`, skipped with a visible reason when the model is missing). `stc report <id>` reruns it. Mein Tag mode (`stc talk --mein-tag` or `m` in the start menu): follow-up-only partner, ladder 15/25/35 s, 180 s turns, no recast, no comprehension check, English words taken up in German by the partner and listed in the report. Comprehension check: every 4th partner turn in a scenario conversation the partner tells 2–3 sentences with two concrete details and asks for a retelling; the report scores it 0–2.
 
 ## Error handling
 
@@ -174,7 +176,7 @@ Findings carried into Phase 1:
 
 ## Configuration (`.env`, never committed)
 
-`DEEPGRAM_API_KEY`, `GATEWAY_BASE_URL` (incl. `/v1`), `GATEWAY_API_KEY`, `STC_PARTNER_MODEL=deepseek-v4-pro`, `STC_FALLBACK_MODEL=claude-sonnet-5`, `STC_REPORT_MODEL=claude-sonnet-5`, `STC_TTS_VOICE=de-DE-SeraphinaMultilingualNeural`, `STC_QUESTION_BANKS`, `STC_LADDER_SECONDS=4,8,12`. (`ANTHROPIC_API_KEY` stays for the existing enrich stage.) `.env.example` gains these names with empty values.
+`DEEPGRAM_API_KEY`, `GATEWAY_BASE_URL` (incl. `/v1`), `GATEWAY_API_KEY`, `STC_PARTNER_MODEL=deepseek-v4-pro`, `STC_FALLBACK_MODEL=claude-sonnet-5`, `STC_REPORT_MODEL=claude-sonnet-5`, `STC_TTS_VOICE=de-DE-SeraphinaMultilingualNeural`, `STC_QUESTION_BANKS`, `STC_LADDER_SECONDS=4,8,12`, `STC_MEIN_TAG_LADDER_SECONDS=15,25,35`. (`ANTHROPIC_API_KEY` stays for the existing enrich stage.) `.env.example` gains these names with empty values.
 
 ## Open after v1
 
