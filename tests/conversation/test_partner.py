@@ -182,3 +182,12 @@ def test_openai_client_passes_max_tokens_and_temperature() -> None:
     client._client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
     assert client.complete("m", [{"role": "user", "content": "x"}], 5.0) == "{}"
     assert seen["max_tokens"] == 3000 and seen["temperature"] == 0.2
+
+
+def test_comprehension_impulse_replaces_seed() -> None:
+    from self_talk_coach.conversation.partner import COMPREHENSION_IMPULSE
+
+    client = FakeClient({"p": [json.dumps(GOOD)], "f": []})
+    Partner(client, "p", "f", "SYS").respond("Ich arbeite.", "Hobbys?", section="S", comprehension=True)
+    content = client.calls[0][1][-1]["content"]
+    assert COMPREHENSION_IMPULSE in content and "Hobbys?" not in content

@@ -35,6 +35,7 @@ PARDON = "Wie bitte? Kannst du das nochmal sagen?"
 MIN_SPEECH_SECONDS = 0.4
 POLL_SECONDS = 0.05
 MAX_RECORD_SECONDS = 60.0
+COMPREHENSION_EVERY = 4  # every Nth partner turn retells instead of asking (0 = off)
 KEYS = "t = Text · f = Szenarien · w = nächstes · q = Ende"
 # Keys that cut playback short; the key is then handled as if pressed while waiting.
 INTERRUPT_KEYS = frozenset({" ", "q", "r", "s", "w", "f"})
@@ -78,6 +79,8 @@ class SessionDeps:
     store_audio: Callable[[bytes, Path], None] = encode_opus
     out: Callable[[str], None] = print
     status: Callable[[str], None] = print
+    max_record_seconds: float = MAX_RECORD_SECONDS
+    comprehension_every: int = COMPREHENSION_EVERY
 
 
 @dataclass
@@ -101,6 +104,8 @@ class _State:
     seed_text: str = ""
     reply: PartnerReply | None = None
     audio: bytes = b""
+    partner_turns: int = 0
+    check: bool = False  # current partner turn is a comprehension check
 
 
 class ConversationSession:
@@ -156,16 +161,21 @@ class ConversationSession:
     def _partner_turn(self, *, opening: bool, learner_text: str) -> None:
         picked = self._d.picker.next()
         seed = picked.text
+        every = self._d.comprehension_every
+        check = not opening and every > 0 and (self._s.partner_turns + 1) % every == 0
         try:
             if opening:
                 reply = self._d.partner.opening(seed, section=picked.section, phrase=picked.phrase)
             else:
                 reply = self._d.partner.respond(
-                    learner_text, seed, section=picked.section, phrase=picked.phrase
+                    learner_text, seed, section=picked.section, phrase=picked.phrase, comprehension=check
                 )
         except PartnerUnavailable as exc:
             self._d.status(f"[Hinweis] KI-Partner nicht erreichbar, ich lese die Frage aus der Liste vor. Grund: {str(exc)[:160]}")
             reply = fallback_reply(seed)
+            check = False
+        self._s.partner_turns += 1
+        self._s.check = check
         self._s.seed_text = seed
         self._s.reply = reply
         self._s.audio = self._d.voice.synthesize(reply.turn.spoken_text())
@@ -187,6 +197,7 @@ class ConversationSession:
             seed=s.seed_text,
             partner_turn_json=s.reply.turn.model_dump_json(),
             llm_model=s.reply.model,
+            comprehension_check=s.check,
         )
 
     # --- waiting for the learner -------------------------------------------
@@ -273,7 +284,7 @@ class ConversationSession:
         d.recorder.start()
         d.status("[Aufnahme] ... SPACE = Stopp")
         record_started = d.clock.now()
-        while d.keys.poll() != " " and d.clock.now() - record_started < MAX_RECORD_SECONDS:
+        while d.keys.poll() != " " and d.clock.now() - record_started < d.max_record_seconds:
             d.clock.sleep(POLL_SECONDS)
         samples = d.recorder.stop()
         d.status("[...] Partner denkt nach")

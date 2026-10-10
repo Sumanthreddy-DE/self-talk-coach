@@ -39,6 +39,12 @@ _WORD = re.compile(r"\w+")
 _W_QUESTION = re.compile(
     r"^(wer|wen|wem|was|wann|wo|woher|wohin|warum|wieso|weshalb|wie|welche[rsmn]?|wofür|womit|worüber)$"
 )
+COMPREHENSION_IMPULSE = (
+    "Verständnis-Check: Stell jetzt keine neue Frage. Erzähl in 2–3 kurzen Sätzen (B1) etwas aus deiner Rolle "
+    "oder zum Thema, mit zwei konkreten Details (z. B. Uhrzeit, Ort, Zahl, Name). "
+    "Ende mit: \"Erzähl kurz nach, was ich gerade gesagt habe.\" recast null. "
+    "starter_phrase: \"Du hast gesagt, dass …\""
+)
 # Share of a reply sentence's words already in the recast at which it counts as an echo.
 # Calibrated on real DeepSeek turns 2026-10-07: echoes 0.67–1.0, new questions 0–0.25.
 _ECHO_OVERLAP = 0.6
@@ -170,8 +176,11 @@ class Partner:
             f"Beginne das Gespräch mit einer kurzen Begrüßung und einer Frage.\n{_impulse(seed, section, phrase)}"
         )
 
-    def respond(self, learner_text: str, seed: str, section: str = "", phrase: bool = False) -> PartnerReply:
-        return self._turn(f"Lerner: {learner_text}\n{_impulse(seed, section, phrase)}")
+    def respond(
+        self, learner_text: str, seed: str, section: str = "", phrase: bool = False, comprehension: bool = False
+    ) -> PartnerReply:
+        impulse = COMPREHENSION_IMPULSE if comprehension else _impulse(seed, section, phrase)
+        return self._turn(f"Lerner: {learner_text}\n{impulse}")
 
     def _turn(self, user_content: str) -> PartnerReply:
         user = {"role": "user", "content": user_content}
