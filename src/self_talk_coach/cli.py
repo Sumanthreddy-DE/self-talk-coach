@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import statistics
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
+from self_talk_coach.conversation.report_metrics import median_freeze
 from self_talk_coach.db import connect, init_db
 from self_talk_coach.domain import ImportOutcome, TranscriptionOutcome
 from self_talk_coach.ingest import import_inbox
@@ -250,9 +250,3 @@ def choose_start_scenario(deck, read, echo) -> str:
         if answer.isdigit() and int(answer) < len(deck.options()):
             return deck.choose(int(answer))
         echo(f"Keine Nummer {answer!r}.")
-
-
-def median_freeze(turns: list) -> float | None:
-    """Median of the recorded learner freezes; None when no turn has one."""
-    freezes = [t["freeze_seconds"] for t in turns if t["freeze_seconds"] is not None]
-    return statistics.median(freezes) if freezes else None
