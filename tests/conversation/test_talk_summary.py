@@ -27,3 +27,16 @@ def test_choose_start_scenario_by_number_reasks_on_bad_input_enter_is_mixed() ->
     assert "   2  B" in shown and deck.next().text == "b"
     assert sum("Keine Nummer" in line for line in shown) == 2
     assert choose_start_scenario(ScenarioDeck(seeds, None, random.Random(0)), lambda _: "", shown.append) == "alle Bereiche"
+
+
+def test_report_command_is_registered_and_reports_unknown_id(tmp_path, monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from self_talk_coach.cli import app
+
+    for name, value in {"DEEPGRAM_API_KEY": "d", "GATEWAY_BASE_URL": "https://gw.example/v1",
+                        "GATEWAY_API_KEY": "g", "STC_QUESTION_BANKS": "x.md"}.items():
+        monkeypatch.setenv(name, value)
+    result = CliRunner().invoke(app, ["report", "999", "--data-root", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "Kein Gespräch 999" in result.output

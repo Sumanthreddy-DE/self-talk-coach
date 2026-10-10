@@ -26,6 +26,8 @@ app = typer.Typer(help="self-talk-coach: German self-talk learning system")
 export_app = typer.Typer(help="Export stored learning artifacts.")
 app.add_typer(export_app, name="export")
 
+REPORT_MAX_TOKENS = 3000
+
 
 @app.command()
 def version() -> None:
@@ -182,6 +184,7 @@ def talk_command(
         load_banks,
         mark_phrase_sections,
     )
+    from self_talk_coach.conversation.report import build_report
     from self_talk_coach.conversation.session import ConversationSession, SessionDeps
     from self_talk_coach.conversation.stt import DeepgramTranscriber
     from self_talk_coach.conversation.tts import EdgeVoice
@@ -234,9 +237,63 @@ def talk_command(
         )
         cid = ConversationSession(deps, scenario=deck.label, llm_label=cfg.partner_model).run()
         turns = list_turns(conn, cid)
-    median = median_freeze(turns)
-    shown = f"{median:.1f}" if median is not None else "–"
-    typer.echo(f"Gespräch {cid} gespeichert: {len(turns)} Turns, Median-Freeze {shown} s")
+        median = median_freeze(turns)
+        shown = f"{median:.1f}" if median is not None else "–"
+        typer.echo(f"Gespräch {cid} gespeichert: {len(turns)} Turns, Median-Freeze {shown} s")
+        if any(t["speaker"] == "learner" for t in turns):
+            typer.echo("[Bericht] wird erstellt …")
+            typer.echo(build_report(report_deps(conn, paths, cfg), cid))
+        else:
+            typer.echo("Kein Bericht: keine Antwort aufgenommen.")
+
+
+def report_deps(conn, paths: AppPaths, cfg, status=typer.echo):
+    from self_talk_coach.conversation.partner import OpenAIChatClient
+    from self_talk_coach.conversation.report import ReportDeps
+    from self_talk_coach.mine import load_baseline, spacy_lemmatizer
+
+    return ReportDeps(
+        conn=conn,
+        paths=paths,
+        client=OpenAIChatClient(cfg.gateway_base_url, cfg.gateway_api_key,
+                                max_tokens=REPORT_MAX_TOKENS, temperature=0.2),
+        model=cfg.report_model,
+        lemmatizer=spacy_lemmatizer,
+        baseline=load_baseline(),
+        status=status,
+    )
+
+
+@app.command("report")
+def report_command(
+    conversation_id: Annotated[int, typer.Argument(help="Conversation id (printed after stc talk).")],
+    data_root: Annotated[
+        Path, typer.Option("--data-root", help="Application data root.")
+    ] = Path("data"),
+) -> None:
+    """Build (or rebuild) the session report of one conversation."""
+    import os
+
+    from dotenv import load_dotenv
+
+    from self_talk_coach.conversation.config import ConfigError, TalkConfig
+    from self_talk_coach.conversation.report import build_report
+
+    load_dotenv()
+    try:
+        cfg = TalkConfig.from_env(os.environ)
+    except ConfigError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    paths = AppPaths.from_data_root(data_root)
+    paths.ensure_workspace()
+    with connect(paths.db_path) as conn:
+        init_db(conn)
+        try:
+            typer.echo(build_report(report_deps(conn, paths, cfg), conversation_id))
+        except ValueError as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
 
 
 def choose_start_scenario(deck, read, echo) -> str:
