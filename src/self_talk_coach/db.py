@@ -7,14 +7,17 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from self_talk_coach.domain import (
+    CONVERSATION_PRODUCER,
     ConversationStatus,
     DateConfidence,
     MediaStatus,
+    NewCandidate,
+    ReportStatus,
     TranscriptStatus,
     TurnSpeaker,
 )
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def connect(db_path: Path | str) -> sqlite3.Connection:
@@ -148,6 +151,11 @@ def init_db(conn: sqlite3.Connection) -> None:
         );
         """
     )
+    columns = [r[1] for r in conn.execute("PRAGMA table_info(learning_candidates)")]
+    if "turn_id" not in columns:
+        conn.execute(
+            "ALTER TABLE learning_candidates ADD COLUMN turn_id INTEGER REFERENCES turns(id) ON DELETE SET NULL"
+        )
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.commit()
 
@@ -374,17 +382,18 @@ def insert_turn(
     partner_turn_json: str | None = None,
     llm_model: str | None = None,
     freeze_seconds: float | None = None,
+    comprehension_check: bool = False,
 ) -> int:
     cursor = conn.execute(
         """
         INSERT INTO turns (
             conversation_id, turn_index, speaker, text, audio_path, words_json,
-            seed, partner_turn_json, llm_model, freeze_seconds
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            seed, partner_turn_json, llm_model, freeze_seconds, comprehension_check
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             conversation_id, turn_index, speaker.value, text, audio_path, words_json,
-            seed, partner_turn_json, llm_model, freeze_seconds,
+            seed, partner_turn_json, llm_model, freeze_seconds, int(comprehension_check),
         ),
     )
     conn.commit()
@@ -414,4 +423,57 @@ def update_turn_listening(
 def list_turns(conn: sqlite3.Connection, conversation_id: int) -> list[sqlite3.Row]:
     return conn.execute(
         "SELECT * FROM turns WHERE conversation_id = ? ORDER BY turn_index", (conversation_id,)
+    ).fetchall()
+
+
+def set_report_status(conn: sqlite3.Connection, conversation_id: int, status: ReportStatus) -> None:
+    conn.execute("UPDATE conversations SET report_status = ? WHERE id = ?", (status.value, conversation_id))
+    conn.commit()
+
+
+def update_turn_out_of_baseline(conn: sqlite3.Connection, turn_id: int, ratio: float | None) -> None:
+    conn.execute("UPDATE turns SET out_of_baseline_ratio = ? WHERE id = ?", (ratio, turn_id))
+    conn.commit()
+
+
+def replace_conversation_candidates(
+    conn: sqlite3.Connection, conversation_id: int, candidates: Iterable[NewCandidate]
+) -> None:
+    """Swap this conversation's report candidates for a fresh set: `stc report` reruns never duplicate."""
+    conn.execute(
+        "DELETE FROM learning_candidates WHERE producer = ? "
+        "AND turn_id IN (SELECT id FROM turns WHERE conversation_id = ?)",
+        (CONVERSATION_PRODUCER, conversation_id),
+    )
+    conn.executemany(
+        """
+        INSERT INTO learning_candidates
+            (candidate_type, turn_id, original_text, suggested_text, explanation, producer)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (c.candidate_type.value, c.turn_id, c.original_text, c.suggested_text, c.explanation,
+             CONVERSATION_PRODUCER)
+            for c in candidates
+        ],
+    )
+    conn.commit()
+
+
+def list_conversation_candidates(conn: sqlite3.Connection, conversation_id: int) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT lc.* FROM learning_candidates lc JOIN turns t ON t.id = lc.turn_id "
+        "WHERE t.conversation_id = ? ORDER BY lc.id",
+        (conversation_id,),
+    ).fetchall()
+
+
+def previous_conversations(
+    conn: sqlite3.Connection, before_id: int, *, limit: int = 5, exclude_scenario: str | None = None
+) -> list[sqlite3.Row]:
+    """Completed conversations before `before_id`, newest first (freeze-trend comparison set)."""
+    return conn.execute(
+        "SELECT * FROM conversations WHERE id < ? AND status = ? "
+        "AND (scenario IS NULL OR scenario != ?) ORDER BY id DESC LIMIT ?",
+        (before_id, ConversationStatus.COMPLETED.value, exclude_scenario or "", limit),
     ).fetchall()

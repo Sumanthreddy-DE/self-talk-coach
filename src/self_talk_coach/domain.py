@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import StrEnum
 
 
@@ -59,3 +60,33 @@ class TurnSpeaker(StrEnum):
 
     LEARNER = "learner"
     PARTNER = "partner"
+
+
+CONVERSATION_PRODUCER = "conversation"
+
+
+class CandidateType(StrEnum):
+    """Kind of learning candidate; values shared with the M3 first-language-analysis plan."""
+
+    GRAMMAR_CORRECTION = "grammar_correction"
+    PHRASE_UPGRADE = "phrase_upgrade"
+    VOCABULARY = "vocabulary"
+
+
+class ReportStatus(StrEnum):
+    """Session-report state of one conversation."""
+
+    PENDING = "pending"
+    DONE = "done"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class NewCandidate:
+    """A learning candidate found in one conversation turn."""
+
+    turn_id: int
+    candidate_type: CandidateType
+    original_text: str
+    suggested_text: str
+    explanation: str
