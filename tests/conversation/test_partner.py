@@ -191,3 +191,19 @@ def test_comprehension_impulse_replaces_seed() -> None:
     Partner(client, "p", "f", "SYS").respond("Ich arbeite.", "Hobbys?", section="S", comprehension=True)
     content = client.calls[0][1][-1]["content"]
     assert COMPREHENSION_IMPULSE in content and "Hobbys?" not in content
+
+
+def test_drop_recast_removes_recast_from_spoken_text() -> None:
+    client = FakeClient({"p": [json.dumps(GOOD)], "f": []})
+    reply = Partner(client, "p", "f", "SYS", drop_recast=True).respond("Ich war müde.", "x")
+    assert reply.turn.recast is None
+    assert reply.turn.spoken_text() == GOOD["reply"]
+
+
+def test_mein_tag_prompt_rules() -> None:
+    from self_talk_coach.conversation.partner import build_mein_tag_prompt
+
+    prompt = build_mein_tag_prompt("Wohnt in Reutlingen.")
+    assert "Rückerstattung" in prompt  # English word taken up in German
+    assert "recast" in prompt and "immer null" in prompt
+    assert prompt.rstrip().endswith("Wohnt in Reutlingen.")

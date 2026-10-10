@@ -32,6 +32,20 @@ Regeln:
 Antworte NUR mit JSON: {{"reply": str, "recast": str|null, "starter_phrase": str, "simpler_rephrase": str, "topic_jump": bool}}
 {profile_block}"""
 
+_MEIN_TAG_TEMPLATE = """Du bist ein guter Freund aus Baden-Württemberg. Der Lerner (Deutsch B1) erzählt dir von seinem Tag.
+Regeln:
+- Du hörst zu. "reply": genau EINE kurze Folgefrage (höchstens 12 Wörter) zu dem, was er gerade erzählt hat.
+  Kein neues Thema, keine eigene Geschichte, kein Lob.
+- Keine Korrekturen: "recast" ist immer null.
+- Benutzt der Lerner englische Wörter, nimm in deiner Folgefrage das deutsche Wort auf.
+  Beispiel: Lerner "Der Kunde wollte einen refund." → reply "Eine Rückerstattung? Und hat er sie bekommen?"
+- Erfinde nie, was der Lerner gesagt hat.
+- Bittet er um Wiederholung ("Wie bitte?"): stell deine letzte Frage noch einmal, einfacher.
+- "starter_phrase": ein Satzanfang, mit dem er weitererzählen kann (z. B. "Danach bin ich …").
+- "simpler_rephrase": deine Frage einfacher. "topic_jump": false.
+Antworte NUR mit JSON: {{"reply": str, "recast": null, "starter_phrase": str, "simpler_rephrase": str, "topic_jump": false}}
+{profile_block}"""
+
 _FENCE = re.compile(r"`{3}(?:json)?")
 _OBJECT = re.compile(r"\{.*\}", re.DOTALL)
 _SENTENCE_END = re.compile(r"(?<=[.?!])\s+")
@@ -119,9 +133,16 @@ class OpenAIChatClient:
         return resp.choices[0].message.content or ""
 
 
+def _profile_block(profile: str | None) -> str:
+    return f"\nÜber den Lerner:\n{profile.strip()}" if profile and profile.strip() else ""
+
+
 def build_system_prompt(profile: str | None) -> str:
-    block = f"\nÜber den Lerner:\n{profile.strip()}" if profile and profile.strip() else ""
-    return _SYSTEM_TEMPLATE.format(profile_block=block)
+    return _SYSTEM_TEMPLATE.format(profile_block=_profile_block(profile))
+
+
+def build_mein_tag_prompt(profile: str | None) -> str:
+    return _MEIN_TAG_TEMPLATE.format(profile_block=_profile_block(profile))
 
 
 def parse_partner_turn(raw: str) -> PartnerTurn:
@@ -159,8 +180,10 @@ class Partner:
         system_prompt: str,
         timeout: float = 15.0,
         max_history: int = 12,
+        drop_recast: bool = False,
     ) -> None:
         self._client = client
+        self._drop_recast = drop_recast
         self._models = (primary, fallback)
         self._system = {"role": "system", "content": system_prompt}
         self._timeout = timeout
@@ -190,6 +213,8 @@ class Partner:
             try:
                 raw = self._client.complete(model, messages, self._timeout)
                 turn = parse_partner_turn(raw)
+                if self._drop_recast and turn.recast:
+                    turn = turn.model_copy(update={"recast": None})  # Mein Tag: no corrections while he talks
             except Exception as exc:  # noqa: BLE001 — any failure moves to the next model
                 errors.append(f"{model}: {type(exc).__name__}: {exc}")
                 continue

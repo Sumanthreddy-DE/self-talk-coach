@@ -40,3 +40,17 @@ def test_report_command_is_registered_and_reports_unknown_id(tmp_path, monkeypat
     result = CliRunner().invoke(app, ["report", "999", "--data-root", str(tmp_path)])
     assert result.exit_code == 1
     assert "Kein Gespräch 999" in result.output
+
+
+def test_start_menu_m_picks_mein_tag_and_leaves_deck_alone() -> None:
+    import random
+
+    from self_talk_coach.cli import choose_start_scenario
+    from self_talk_coach.conversation.mein_tag import MEIN_TAG
+    from self_talk_coach.conversation.question_bank import ScenarioDeck, Seed
+
+    shown: list[str] = []
+    deck = ScenarioDeck([Seed("A", "a")], None, random.Random(0))
+    assert choose_start_scenario(deck, lambda _: "m", shown.append) == MEIN_TAG
+    assert any("Mein Tag" in line for line in shown)
+    assert deck.label == ScenarioDeck.MIXED

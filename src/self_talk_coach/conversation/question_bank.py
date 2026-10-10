@@ -7,6 +7,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Protocol
 
 _ITEM = re.compile(r"^\s*\d+\.\s+(.+?)\s*$")
 
@@ -57,6 +58,19 @@ def filter_scenario(seeds: Sequence[Seed], scenario: str | None) -> list[Seed]:
         sections = sorted({s.section for s in seeds})
         raise ValueError(f"No section matches {scenario!r}. Available: {', '.join(sections)}")
     return chosen
+
+
+class Deck(Protocol):
+    """What a conversation session needs from its seed source (ScenarioDeck, MeinTagDeck)."""
+
+    label: str
+
+    def next(self) -> Seed: ...
+    def options(self) -> list[str]: ...
+    @property
+    def current_option(self) -> int: ...
+    def choose(self, option: int) -> str: ...
+    def switch(self) -> str: ...
 
 
 class ScenarioDeck:

@@ -19,7 +19,7 @@ from self_talk_coach.conversation.help_ladder import (
     step_for,
 )
 from self_talk_coach.conversation.partner import PartnerReply, PartnerUnavailable, fallback_reply
-from self_talk_coach.conversation.question_bank import ScenarioDeck
+from self_talk_coach.conversation.question_bank import Deck
 from self_talk_coach.conversation.stt import LearnerTranscriber, LearnerTranscript
 from self_talk_coach.conversation.tts import Voice
 from self_talk_coach.db import (
@@ -70,7 +70,7 @@ class SessionDeps:
     recorder: Recorder
     keys: KeyInput
     clock: Clock
-    picker: ScenarioDeck
+    picker: Deck
     conn: sqlite3.Connection
     paths: AppPaths
     ladder: LadderTimings
