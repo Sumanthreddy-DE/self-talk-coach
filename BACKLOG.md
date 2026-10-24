@@ -31,6 +31,7 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 - llm-provider-reliability - dlabkeys gateway grants credits daily; on 2026-10-05 the day's credits ran out (429 "hobbyist plan has expired … Free tier") after spikes + tests. gpt-6-luna/sol listed but unavailable. Free-tier `space-bunny` returned empty content in 2/3 turns. Decide: renewed dlabkeys vs official DeepSeek API (config-only switch). Consider a startup preflight call so `stc talk` fails fast instead of falling back every turn. 2026-10-06: credits back, DeepSeek V4 Pro + Sonnet 5 answer in ~2.5 s; `glm-5-3` returned empty content on a 20-token probe.
 - web-ui - Browser frontend for the conversation partner after terminal v1 (also the cheapest path to phone use over LAN). Candidate: Chainlit (Apache-2.0, 12.5k★, community-maintained since 2025-05). Its cookbook `openai-whisper` example (mic → whisper → LLM → ElevenLabs) matches our loop, but the cookbook has no license (ideas only) and was last pushed 2025-08. Needs: hidden partner text, help-ladder timers, freeze-time capture in the browser.
 - plan-location - Plans/spec live in `docs/superpowers/` (blocked for new files by harness hook). Decide: move M1/M2 plans to `docs/exec-plans/completed/`, M3 plan + spec to `docs/exec-plans/`. Separate decision from the 2026-09-28 status triage.
+- mein-tag-live-check - Phase 2 Task 11 Step 3 never ran: `stc talk --mein-tag` ~5 min with some English. Check: no spoken corrections, short follow-ups, English words come back in German, ladder only after ~15 s, report without Freeze section and with English → Deutsch. *(found 2026-10-24, self-talk-coach session)*
 
 ---
 
@@ -57,6 +58,7 @@ _(items currently being worked — move from Open when started, back to Open if 
 - interviewer-mode - Sections named "Interview…": partner is a Personalerin using "Sie" (replies, recasts, starters, check, nudges, pardon), questions in bank order, answers up to 120 s with a visible cut-off line (5f32ec1, 750b8f7)
 - report-case-noise - Report no longer lists capitalisation/punctuation as errors: prompt rule + code guard in verify_findings (750b8f7)
 - vocab-miner-noise-filters - Partly: inflected forms of baseline words count as known ("Verstehe" -> verstehen). freq/NER filters and ignore.txt still not built; reopen if junk shows (750b8f7)
+- check-uses-up-seed - Comprehension checks consumed a bank question; interview skipped Schwächen/fünf Jahre and wrapped to the first question (2eb9b18)
 - word-list - New words get English meanings (same report LLM call) and one-sentence examples, and collect in `data/neue-woerter.md` with checkboxes that survive reruns (1c044b4)
 - vocab-miner - `mine.py`: spaCy lemmas (NOUN/VERB/ADJ/ADV, no stopwords) outside the B1 baseline and not used by the learner; partner `out_of_baseline_ratio` per turn. Missing `de_core_news_lg` → report section skipped with a visible reason (0abd635)
 - report-rescue-phrases - Session report lists rescue phrases used (report LLM, quote-verified) and missed chances (ladder ≥ starter, no rescue phrase); never counted as listening failures (da997c2)
