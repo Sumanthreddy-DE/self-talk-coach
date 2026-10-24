@@ -416,3 +416,20 @@ def test_record_limit_comes_from_deps(tmp_path: Path) -> None:
     deps.max_record_seconds = 180.0
     ConversationSession(deps, scenario=None, llm_label="x").run()
     assert stops and stops[0] >= 100.0  # default 60 s would have cut at 61 s
+
+
+def test_interview_section_nudges_and_pardons_with_sie(tmp_path: Path) -> None:
+    from self_talk_coach.conversation.help_ladder import NUDGE_PHRASES_SIE
+    from self_talk_coach.conversation.session import PARDON_SIE
+
+    deps, _, player, _, _ = _deps(
+        tmp_path,
+        keys_script=[(5.0, " "), (5.1, " "), (6.0, "q")],
+        recordings=[0.1], texts=[],
+        replies=[_reply("Was sind Ihre Stärken?")],
+    )
+    deps.picker = ScenarioDeck([Seed("Interview: Core", "Was sind Ihre Stärken?")], None, random.Random(0))
+    ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert any(p.decode() in NUDGE_PHRASES_SIE for p in player.played)
+    assert not any(p.decode() in NUDGE_PHRASES for p in player.played)
+    assert PARDON_SIE.encode() in player.played and PARDON.encode() not in player.played

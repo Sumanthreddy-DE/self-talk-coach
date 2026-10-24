@@ -207,3 +207,25 @@ def test_mein_tag_prompt_rules() -> None:
     assert "Rückerstattung" in prompt  # English word taken up in German
     assert "recast" in prompt and "immer null" in prompt
     assert prompt.rstrip().endswith("Wohnt in Reutlingen.")
+
+
+def test_interview_section_plays_interviewer_with_sie() -> None:
+    from self_talk_coach.conversation.partner import INTERVIEW_ROLE
+
+    client = FakeClient({"p": [json.dumps(GOOD), json.dumps(GOOD)], "f": []})
+    partner = Partner(client, "p", "f", "SYS")
+    partner.opening("Was sind Ihre Stärken?", section="Interview: Core")
+    partner.respond("Ich arbeite.", "Hobbys?", section="Daily")
+    interview, daily = (c[1][-1]["content"] for c in client.calls)
+    assert INTERVIEW_ROLE in interview and "Was sind Ihre Stärken?" in interview
+    assert INTERVIEW_ROLE not in daily
+
+
+def test_interview_comprehension_check_uses_sie() -> None:
+    from self_talk_coach.conversation.partner import COMPREHENSION_IMPULSE, COMPREHENSION_IMPULSE_INTERVIEW
+
+    client = FakeClient({"p": [json.dumps(GOOD)], "f": []})
+    Partner(client, "p", "f", "SYS").respond("Ich arbeite.", "x", section="Interview: Behavioral", comprehension=True)
+    content = client.calls[0][1][-1]["content"]
+    assert COMPREHENSION_IMPULSE_INTERVIEW in content and COMPREHENSION_IMPULSE not in content
+    assert "Sie haben gesagt" in content and "Du hast gesagt" not in content

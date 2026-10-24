@@ -14,11 +14,12 @@ import numpy as np
 from self_talk_coach.conversation.audio_store import SAMPLE_RATE, encode_opus, wav_bytes
 from self_talk_coach.conversation.help_ladder import (
     NUDGE_PHRASES,
+    NUDGE_PHRASES_SIE,
     LadderStep,
     LadderTimings,
     step_for,
 )
-from self_talk_coach.conversation.partner import PartnerReply, PartnerUnavailable, fallback_reply
+from self_talk_coach.conversation.partner import PartnerReply, PartnerUnavailable, fallback_reply, is_interview
 from self_talk_coach.conversation.question_bank import Deck
 from self_talk_coach.conversation.stt import LearnerTranscriber, LearnerTranscript
 from self_talk_coach.conversation.tts import Voice
@@ -32,6 +33,7 @@ from self_talk_coach.domain import ConversationStatus, TurnSpeaker
 from self_talk_coach.paths import AppPaths
 
 PARDON = "Wie bitte? Kannst du das nochmal sagen?"
+PARDON_SIE = "Wie bitte? Können Sie das noch einmal sagen?"
 MIN_SPEECH_SECONDS = 0.4
 POLL_SECONDS = 0.05
 MAX_RECORD_SECONDS = 60.0
@@ -106,6 +108,7 @@ class _State:
     audio: bytes = b""
     partner_turns: int = 0
     check: bool = False  # current partner turn is a comprehension check
+    interview: bool = False  # current section is a job interview: helpers say "Sie"
 
 
 class ConversationSession:
@@ -177,6 +180,7 @@ class ConversationSession:
         self._s.partner_turns += 1
         self._s.check = check
         self._s.seed_text = seed
+        self._s.interview = is_interview(picked.section)
         self._s.reply = reply
         self._s.audio = self._d.voice.synthesize(reply.turn.spoken_text())
 
@@ -270,7 +274,7 @@ class ConversationSession:
         assert self._s.reply is not None
         turn = self._s.reply.turn
         if step == LadderStep.NUDGE:
-            return self._d.rng.choice(NUDGE_PHRASES)
+            return self._d.rng.choice(NUDGE_PHRASES_SIE if self._s.interview else NUDGE_PHRASES)
         if step == LadderStep.STARTER:
             return turn.starter_phrase
         if step == LadderStep.REPHRASE:
@@ -289,12 +293,12 @@ class ConversationSession:
         samples = d.recorder.stop()
         d.status("[...] Partner denkt nach")
         if len(samples) < MIN_SPEECH_SECONDS * SAMPLE_RATE:
-            self._play(d.voice.synthesize(PARDON))
+            self._play(d.voice.synthesize(PARDON_SIE if s.interview else PARDON))
             return None
         audio = wav_bytes(samples)
         transcript = self._transcribe_with_retry(audio)
         if transcript is None or not transcript.text.strip():
-            self._play(d.voice.synthesize(PARDON))
+            self._play(d.voice.synthesize(PARDON_SIE if s.interview else PARDON))
             return None
         index = self._next_index()
         audio_path = self._store(audio, index, "learner")

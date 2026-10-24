@@ -59,6 +59,18 @@ COMPREHENSION_IMPULSE = (
     "Ende mit: \"Erzähl kurz nach, was ich gerade gesagt habe.\" recast null. "
     "starter_phrase: \"Du hast gesagt, dass …\""
 )
+INTERVIEW_ROLE = (
+    "Rolle: Vorstellungsgespräch. Du bist Personalerin und führst das Gespräch. "
+    "Sieze den Lerner in allem, auch im recast (z. B. \"Ah, Sie haben Maschinenbau studiert?\") "
+    "und im starter_phrase. Freundlich, aber professionell."
+)
+COMPREHENSION_IMPULSE_INTERVIEW = (
+    f"{INTERVIEW_ROLE}\n"
+    "Verständnis-Check: Stell jetzt keine neue Frage. Erzähl in 2–3 kurzen Sätzen (B1) etwas über die Firma "
+    "oder die Stelle, mit zwei konkreten Details (z. B. Teamgröße, Ort, Zahl, Name). "
+    "Ende mit: \"Fassen Sie kurz zusammen, was ich gerade gesagt habe.\" recast null. "
+    "starter_phrase: \"Sie haben gesagt, dass …\""
+)
 # Share of a reply sentence's words already in the recast at which it counts as an echo.
 # Calibrated on real DeepSeek turns 2026-10-07: echoes 0.67–1.0, new questions 0–0.25.
 _ECHO_OVERLAP = 0.6
@@ -155,7 +167,14 @@ def parse_partner_turn(raw: str) -> PartnerTurn:
         raise PartnerFormatError(str(exc)) from exc
 
 
+def is_interview(section: str) -> bool:
+    """Bank sections named "Interview…" are played as a job interview, with "Sie"."""
+    return section.strip().lower().startswith("interview")
+
+
 def _impulse(seed: str, section: str, phrase: bool = False) -> str:
+    if is_interview(section):
+        return f"{INTERVIEW_ROLE}\nFrage an den Lerner (Bereich: {section}): {seed}"
     where = f" (Bereich: {section})" if section else ""
     if phrase:
         return (
@@ -202,7 +221,10 @@ class Partner:
     def respond(
         self, learner_text: str, seed: str, section: str = "", phrase: bool = False, comprehension: bool = False
     ) -> PartnerReply:
-        impulse = COMPREHENSION_IMPULSE if comprehension else _impulse(seed, section, phrase)
+        if comprehension:
+            impulse = COMPREHENSION_IMPULSE_INTERVIEW if is_interview(section) else COMPREHENSION_IMPULSE
+        else:
+            impulse = _impulse(seed, section, phrase)
         return self._turn(f"Lerner: {learner_text}\n{impulse}")
 
     def _turn(self, user_content: str) -> PartnerReply:

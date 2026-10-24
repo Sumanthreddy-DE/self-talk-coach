@@ -10,6 +10,11 @@ NUDGE_PHRASES: tuple[str, ...] = (
     "Kein Stress, denk kurz nach.",
     "Ganz in Ruhe.",
 )
+NUDGE_PHRASES_SIE: tuple[str, ...] = (
+    "Lassen Sie sich ruhig Zeit.",
+    "Kein Problem, denken Sie kurz nach.",
+    "Nehmen Sie sich ruhig einen Moment.",
+)
 
 
 class LadderStep(IntEnum):

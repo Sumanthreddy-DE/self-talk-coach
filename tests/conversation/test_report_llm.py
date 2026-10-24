@@ -77,7 +77,7 @@ def test_analyze_sends_transcript_to_report_model() -> None:
     client = FakeClient(json.dumps(FINDINGS))
     findings = analyze(client, "claude-sonnet-5", TURNS)
     model, messages, timeout = client.calls[0]
-    assert model == "claude-sonnet-5" and timeout == 90.0
+    assert model == "claude-sonnet-5" and timeout == 180.0
     assert "[L1] Ich habe einen Frage" in messages[1]["content"]
     assert isinstance(findings, ReportFindings)
 

@@ -135,7 +135,7 @@ def verify_findings(findings: ReportFindings, turns: Sequence[Turn]) -> tuple[Re
     return kept, findings.count() - kept.count()
 
 
-def analyze(client: ChatClient, model: str, turns: Sequence[Turn], timeout: float = 90.0) -> ReportFindings:
+def analyze(client: ChatClient, model: str, turns: Sequence[Turn], timeout: float = 180.0) -> ReportFindings:
     return parse_findings(client.complete(model, build_messages(turns), timeout))
 
 
