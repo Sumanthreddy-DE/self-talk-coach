@@ -212,8 +212,8 @@ mode, comprehension checks, the session report with the new-word list, and the
 self-talk library. Tested live on two job-interview conversations (2026-10-24);
 Mein Tag is built and unit-tested but has not had a live run yet.
 
-Known gaps: partner turns sometimes run three sentences, which is long by ear; if the
-text-to-speech service fails, the session stops instead of falling back to text.
+If the text-to-speech service fails, the console says why and shows the partner's
+text instead, and the conversation goes on.
 Next: a review queue for the stored corrections, then Anki export (`enrich.py` /
 `anki.py`, not wired into the CLI yet).
 
