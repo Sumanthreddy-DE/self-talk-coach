@@ -177,7 +177,7 @@ stc talk --mein-tag                     # free talk about your day
 stc report 13                           # rebuild the report of conversation 13
 ```
 
-Or double-click `scripts	alk.bat`: it opens in the repo root and starts `stc talk` with
+Or double-click `scripts\talk.bat`: it opens in the repo root and starts `stc talk` with
 the scenario menu. For a desktop icon, right-click it → *Send to* → *Desktop (create shortcut)*.
 
 The new-word list needs the spaCy German model once:
