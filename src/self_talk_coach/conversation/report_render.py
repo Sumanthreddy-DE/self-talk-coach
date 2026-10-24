@@ -84,5 +84,6 @@ def render_report(d: ReportData) -> str:
     if d.new_words is None:
         out.append(f"übersprungen ({d.vocab_error})")
     else:
-        out += _or_dash([f"- **{w.lemma}** — {w.example}" for w in d.new_words])
+        out += _or_dash([f"- **{w.lemma}**{f' ({w.meaning})' if w.meaning else ''} — {w.example}"
+                         for w in d.new_words])
     return "\n".join(out) + "\n"

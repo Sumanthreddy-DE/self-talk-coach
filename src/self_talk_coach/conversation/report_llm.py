@@ -32,6 +32,8 @@ Return ONLY a JSON object with these keys:
 - "comprehension": for each learner turn directly after a {CHECK_MARK} partner turn:
   {{"turn": int, "score": 0|1|2, "missed": str}} (0 = main point missed, 1 = main point only,
   2 = main point and a detail; "missed": what was left out, short German).
+- "meanings": for each word under "New words:" at the end of the transcript (if any):
+  {{"word": str, "meaning": str}} — English, max 6 words, the sense it has in this conversation.
 "original", "english" and "phrase" must be copied character for character from that learner turn.
 Use empty lists when there is nothing to report."""
 
@@ -80,12 +82,18 @@ class ComprehensionFinding(BaseModel):
     missed: str = ""
 
 
+class MeaningFinding(BaseModel):
+    word: str
+    meaning: str
+
+
 class ReportFindings(BaseModel):
     errors: list[ErrorFinding] = Field(default_factory=list)
     phrasings: list[PhrasingFinding] = Field(default_factory=list)
     english: list[EnglishFinding] = Field(default_factory=list)
     rescue_phrases: list[RescueFinding] = Field(default_factory=list)
     comprehension: list[ComprehensionFinding] = Field(default_factory=list)
+    meanings: list[MeaningFinding] = Field(default_factory=list)  # glosses, not quotes: never verified
 
     def count(self) -> int:
         return sum(len(getattr(self, name)) for name in type(self).model_fields)
@@ -100,8 +108,9 @@ def transcript_lines(turns: Sequence[Turn]) -> str:
     return "\n".join(lines)
 
 
-def build_messages(turns: Sequence[Turn]) -> list[dict[str, str]]:
-    return [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": transcript_lines(turns)}]
+def build_messages(turns: Sequence[Turn], words: Sequence[str] = ()) -> list[dict[str, str]]:
+    user = transcript_lines(turns) + (f"\n\nNew words: {', '.join(words)}" if words else "")
+    return [{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}]
 
 
 def parse_findings(raw: str) -> ReportFindings:
@@ -135,12 +144,15 @@ def verify_findings(findings: ReportFindings, turns: Sequence[Turn]) -> tuple[Re
         english=[f for f in findings.english if said(f.turn, f.english)],
         rescue_phrases=[f for f in findings.rescue_phrases if said(f.turn, f.phrase)],
         comprehension=[f for f in findings.comprehension if f.turn in learner and 0 <= f.score <= 2],
+        meanings=findings.meanings,
     )
     return kept, findings.count() - kept.count()
 
 
-def analyze(client: ChatClient, model: str, turns: Sequence[Turn], timeout: float = 180.0) -> ReportFindings:
-    return parse_findings(client.complete(model, build_messages(turns), timeout))
+def analyze(
+    client: ChatClient, model: str, turns: Sequence[Turn], words: Sequence[str] = (), timeout: float = 180.0
+) -> ReportFindings:
+    return parse_findings(client.complete(model, build_messages(turns, words), timeout))
 
 
 def top_errors(errors: Sequence[ErrorFinding], n: int = 3) -> list[tuple[str, list[ErrorFinding]]]:

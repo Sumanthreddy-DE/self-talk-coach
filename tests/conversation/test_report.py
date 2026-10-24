@@ -82,7 +82,7 @@ def test_full_report_written_and_candidates_stored(tmp_path: Path) -> None:
     assert types == ["grammar_correction", "phrase_upgrade", "vocabulary"]
     partner = [t for t in list_turns(conn, cid) if t["speaker"] == "partner"]
     assert all(t["out_of_baseline_ratio"] is not None for t in partner)
-    assert status == []
+    assert len(status) == 1 and status[0].startswith("[Wörter] ") and "neue-woerter.md" in status[0]
 
 
 def test_llm_failure_gives_metrics_only_report_and_visible_reason(tmp_path: Path) -> None:
@@ -120,3 +120,20 @@ def test_mein_tag_report_has_no_freeze_section(tmp_path: Path) -> None:
     conn, cid = _setup(tmp_path, scenario="Mein Tag")
     deps, _ = _deps(conn, tmp_path, FakeClient(json.dumps(FINDINGS)))
     assert "## Freeze" not in build_report(deps, cid)
+
+
+def test_new_words_get_meanings_sentence_examples_and_the_running_list(tmp_path: Path) -> None:
+    conn, cid = _setup(tmp_path)
+    glossed = {**FINDINGS, "meanings": [{"word": "acht", "meaning": "eight"}]}
+    client = FakeClient(json.dumps(glossed))
+    seen: list = []
+    client.complete = lambda model, messages, timeout: seen.append(messages) or json.dumps(glossed)
+    deps, _ = _deps(conn, tmp_path, client)
+    text = build_report(deps, cid)
+
+    assert "New words: " in seen[0][-1]["content"] and "acht" in seen[0][-1]["content"]
+    words = text.split("## Neue Wörter")[1]
+    assert "**Rückerstattung** (refund)" in words  # learner's English comes first, meaning = his word
+    assert "**acht** (eight) — Ich war um acht im Laden." in words  # one sentence, not the whole turn
+    listed = (tmp_path / "neue-woerter.md").read_text(encoding="utf-8")
+    assert f"<!-- stc:{cid} -->" in listed and "- [ ] **acht** — eight · „Ich war um acht im Laden.“" in listed
