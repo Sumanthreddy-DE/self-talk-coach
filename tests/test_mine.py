@@ -38,3 +38,11 @@ def test_mine_new_words_skips_baseline_known_propn_and_repeats() -> None:
         ("Schichtleiter", "Die Rückerstattung und der Schichtleiter"),
     ]
     assert len(mine_new_words(["A B C D"], frozenset(), set(), fake_lemmatize, limit=2)) == 2
+
+
+def test_inflected_forms_of_baseline_words_are_known() -> None:
+    """spaCy keeps sentence-initial "Verstehe" as lemma "verstehe"; its out-of-context form maps to the baseline."""
+    tokens = [Token("verstehe", "VERB", False, ("verstehe", "verstehen")), Token("Werdegang", "NOUN", False)]
+    words = mine_new_words(["Verstehe. Werdegang?"], frozenset({"verstehen"}), set(), lambda _: tokens)
+    assert [w.lemma for w in words] == ["Werdegang"]
+    assert out_of_baseline_ratio("x", frozenset({"verstehen"}), lambda _: tokens) == 0.5

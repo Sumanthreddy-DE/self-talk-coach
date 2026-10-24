@@ -8,6 +8,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, ValidationError
 
+from self_talk_coach.conversation.question_bank import is_interview
+
 _SYSTEM_TEMPLATE = """Du bist ein Gesprächspartner aus Baden-Württemberg. Du sprichst mit einem Deutschlerner (Niveau B1).
 Regeln:
 - Kurze Antworten: 1–2 Sätze. Umgangssprachlich, natürlich, Sprachniveau B1.
@@ -165,11 +167,6 @@ def parse_partner_turn(raw: str) -> PartnerTurn:
         return PartnerTurn.model_validate_json(match.group(0))
     except ValidationError as exc:
         raise PartnerFormatError(str(exc)) from exc
-
-
-def is_interview(section: str) -> bool:
-    """Bank sections named "Interview…" are played as a job interview, with "Sie"."""
-    return section.strip().lower().startswith("interview")
 
 
 def _impulse(seed: str, section: str, phrase: bool = False) -> str:

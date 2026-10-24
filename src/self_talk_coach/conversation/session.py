@@ -37,6 +37,7 @@ PARDON_SIE = "Wie bitte? Können Sie das noch einmal sagen?"
 MIN_SPEECH_SECONDS = 0.4
 POLL_SECONDS = 0.05
 MAX_RECORD_SECONDS = 60.0
+INTERVIEW_MAX_RECORD_SECONDS = 120.0  # interview answers run long; 60 s cut one off mid-sentence
 COMPREHENSION_EVERY = 4  # every Nth partner turn retells instead of asking (0 = off)
 KEYS = "t = Text · f = Szenarien · w = nächstes · q = Ende"
 # Keys that cut playback short; the key is then handled as if pressed while waiting.
@@ -287,10 +288,17 @@ class ConversationSession:
         d, s = self._d, self._s
         d.recorder.start()
         d.status("[Aufnahme] ... SPACE = Stopp")
+        limit = max(d.max_record_seconds, INTERVIEW_MAX_RECORD_SECONDS) if s.interview else d.max_record_seconds
         record_started = d.clock.now()
-        while d.keys.poll() != " " and d.clock.now() - record_started < d.max_record_seconds:
+        stopped = False
+        while d.clock.now() - record_started < limit:
+            if d.keys.poll() == " ":
+                stopped = True
+                break
             d.clock.sleep(POLL_SECONDS)
         samples = d.recorder.stop()
+        if not stopped:
+            d.status(f"[Hinweis] Aufnahme nach {limit:.0f} s automatisch gestoppt.")
         d.status("[...] Partner denkt nach")
         if len(samples) < MIN_SPEECH_SECONDS * SAMPLE_RATE:
             self._play(d.voice.synthesize(PARDON_SIE if s.interview else PARDON))

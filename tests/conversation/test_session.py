@@ -433,3 +433,28 @@ def test_interview_section_nudges_and_pardons_with_sie(tmp_path: Path) -> None:
     assert any(p.decode() in NUDGE_PHRASES_SIE for p in player.played)
     assert not any(p.decode() in NUDGE_PHRASES for p in player.played)
     assert PARDON_SIE.encode() in player.played and PARDON.encode() not in player.played
+
+
+def test_interview_answer_may_run_120_s_and_cut_off_is_announced(tmp_path: Path) -> None:
+    deps, conn, _, _, _ = _deps(
+        tmp_path, keys_script=[(1.0, " "), (125.0, "q")],
+        recordings=[120.0], texts=["Zuerst habe ich an der Universität gearbeitet."],
+        replies=[_reply("Erzählen Sie über sich."), _reply("Warum diese Stelle?")],
+    )
+    lines: list[str] = []
+    deps.status = lines.append
+    deps.picker = ScenarioDeck([Seed("Interview: Core", "Erzählen Sie über sich.")], None, random.Random(0))
+    cid = ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert "[Hinweis] Aufnahme nach 120 s automatisch gestoppt." in lines
+    assert [t["speaker"] for t in list_turns(conn, cid)] == ["partner", "learner", "partner"]
+
+
+def test_space_stop_gives_no_cut_off_notice(tmp_path: Path) -> None:
+    deps, _, _, _, _ = _deps(
+        tmp_path, keys_script=[(1.0, " "), (3.0, " "), (5.0, "q")],
+        recordings=[2.0], texts=["Ich arbeite."], replies=[_reply("Was machst du?"), _reply("Gern?")],
+    )
+    lines: list[str] = []
+    deps.status = lines.append
+    ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert not any("automatisch gestoppt" in line for line in lines)

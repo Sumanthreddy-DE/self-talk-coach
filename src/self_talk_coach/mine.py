@@ -16,6 +16,10 @@ class Token:
     lemma: str
     pos: str
     is_stop: bool
+    forms: tuple[str, ...] = ()  # other lowercase keys: surface form, lemma of the form out of context
+
+    def keys(self) -> set[str]:
+        return {self.lemma.lower(), *self.forms}
 
 
 Lemmatize = Callable[[str], list[Token]]
@@ -25,6 +29,7 @@ Lemmatize = Callable[[str], list[Token]]
 class NewWord:
     lemma: str
     example: str  # the sentence it first appeared in
+    meaning: str = ""  # short English gloss from the report LLM; "" = none
 
 
 class MinerUnavailable(Exception):
@@ -44,7 +49,7 @@ def out_of_baseline_ratio(text: str, baseline: frozenset[str], lemmatize: Lemmat
     words = _content(lemmatize(text))
     if not words:
         return None
-    return round(sum(t.lemma.lower() not in baseline for t in words) / len(words), 2)
+    return round(sum(not (t.keys() & baseline) for t in words) / len(words), 2)
 
 
 def mine_new_words(
@@ -58,7 +63,7 @@ def mine_new_words(
     for text in sources:
         for token in _content(lemmatize(text)):
             key = token.lemma.lower()
-            if key in baseline or key in known or key in found:
+            if token.keys() & (baseline | known) or key in found:
                 continue
             found[key] = NewWord(token.lemma, text)
             if len(found) == limit:
@@ -76,7 +81,19 @@ def spacy_lemmatizer() -> Lemmatize:
             f"spaCy-Modell {SPACY_MODEL} fehlt: .venv\\Scripts\\python.exe -m spacy download {SPACY_MODEL}"
         ) from exc
 
+    isolated: dict[str, str] = {}
+
+    def alone(form: str) -> str:
+        # In context spaCy keeps sentence-initial "Verstehe" as "verstehe"; alone it gives "verstehen".
+        if form not in isolated:
+            isolated[form] = nlp(form)[0].lemma_.lower()
+        return isolated[form]
+
     def lemmatize(text: str) -> list[Token]:
-        return [Token(t.lemma_, t.pos_, t.is_stop) for t in nlp(text)]
+        out = []
+        for t in nlp(text):
+            forms = (t.text.lower(), alone(t.text.lower())) if t.pos_ in CONTENT_POS else ()
+            out.append(Token(t.lemma_, t.pos_, t.is_stop, forms))
+        return out
 
     return lemmatize

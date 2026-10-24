@@ -25,7 +25,7 @@ FINDINGS = {
         {"turn": 1, "original": "einen Frage", "corrected": "eine Frage", "category": "Kasus/Artikel", "explanation": "Frage is feminine"},
         {"turn": 1, "original": "einen Antwort", "corrected": "eine Antwort", "category": "Kasus/Artikel", "explanation": "invented"},
         {"turn": 0, "original": "Wie war", "corrected": "x", "category": "Verbposition", "explanation": "partner turn"},
-        {"turn": 3, "original": "Du warst im Laden", "corrected": "Du warst im Laden", "category": "Tippfehler", "explanation": "odd"},
+        {"turn": 3, "original": "Du warst im Laden", "corrected": "Ich war im Laden", "category": "Tippfehler", "explanation": "odd"},
     ],
     "phrasings": [],
     "english": [{"turn": 1, "english": "really stressful", "german": "echt stressig"}],
@@ -65,6 +65,15 @@ def test_verify_drops_quotes_the_learner_never_said() -> None:
     assert kept.rescue_phrases[0].turn == 3
     assert [c.score for c in kept.comprehension] == [1]
     assert dropped == 3  # invented quote, partner turn, score out of range
+
+
+def test_verify_drops_case_and_punctuation_only_errors() -> None:
+    case_only = ReportFindings(errors=[
+        ErrorFinding(turn=3, original="Du warst im Laden", corrected="du warst im Laden.", category="Sonstiges"),
+        ErrorFinding(turn=3, original="Du warst", corrected="Sie waren", category="Verbform"),
+    ])
+    kept, dropped = verify_findings(case_only, TURNS)
+    assert [e.corrected for e in kept.errors] == ["Sie waren"] and dropped == 1
 
 
 def test_verify_matches_whole_words_only() -> None:

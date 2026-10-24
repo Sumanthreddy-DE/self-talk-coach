@@ -22,7 +22,8 @@ Return ONLY a JSON object with these keys:
 - "errors": real grammar or word errors in LEARNER turns:
   {{"turn": int, "original": str, "corrected": str, "category": one of {list(CATEGORIES)}, "explanation": str}}
   "explanation": English, max 12 words. Skip filler (äh, okay), errors the learner corrected himself, and
-  unclear words that may be speech-to-text noise.
+  unclear words that may be speech-to-text noise. Capitalisation and punctuation come from speech-to-text,
+  not from the learner: never report them (e.g. "ihre" vs "Ihre" is not an error; "du" vs "Sie" is).
 - "phrasings": correct but unnatural learner sentences: {{"turn": int, "original": str, "better": str}}
 - "english": English words or phrases the learner used: {{"turn": int, "english": str, "german": str}}
 - "rescue_phrases": phrases the learner used to buy time or ask for repetition or clarification
@@ -119,14 +120,17 @@ def _norm(text: str) -> str:
 
 
 def verify_findings(findings: ReportFindings, turns: Sequence[Turn]) -> tuple[ReportFindings, int]:
-    """Keep only findings whose quote is in that learner turn: the report never claims words he did not say."""
+    """Keep only findings whose quote is in that learner turn: the report never claims words he did not say.
+
+    Errors that differ only in case or punctuation are dropped too: in speech they are STT artefacts.
+    """
     learner = {t["turn_index"]: _norm(t["text"]) for t in turns if t["speaker"] == "learner"}
 
     def said(turn: int, quote: str) -> bool:
         return turn in learner and bool(_norm(quote).strip()) and _norm(quote) in learner[turn]
 
     kept = ReportFindings(
-        errors=[f for f in findings.errors if said(f.turn, f.original)],
+        errors=[f for f in findings.errors if said(f.turn, f.original) and _norm(f.original) != _norm(f.corrected)],
         phrasings=[f for f in findings.phrasings if said(f.turn, f.original)],
         english=[f for f in findings.english if said(f.turn, f.english)],
         rescue_phrases=[f for f in findings.rescue_phrases if said(f.turn, f.phrase)],
