@@ -110,3 +110,13 @@ def test_deck_options_mark_current_and_choose_by_number() -> None:
     assert deck.choose(0) == "alle Bereiche" and deck.current_option == 0
     assert {deck.next().section for _ in range(8)} == {"A", "B", "C"}
     assert deck.switch() == "A"
+
+
+def test_interview_sections_are_asked_in_bank_order() -> None:
+    from self_talk_coach.conversation.question_bank import ScenarioDeck, Seed
+
+    seeds = [Seed("Interview: Core", f"Q{i}") for i in range(1, 5)] + [Seed("Daily", "D1"), Seed("Daily", "D2")]
+    deck = ScenarioDeck(seeds, "Interview: Core", random.Random(0))
+    assert [deck.next().text for _ in range(5)] == ["Q1", "Q2", "Q3", "Q4", "Q1"]
+    mixed = ScenarioDeck(seeds, None, random.Random(0))
+    assert {mixed.next().text for _ in range(6)} == {"Q1", "Q2", "Q3", "Q4", "D1", "D2"}

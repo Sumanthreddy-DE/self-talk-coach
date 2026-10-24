@@ -40,3 +40,17 @@ def test_phrase_sections_default_and_override() -> None:
     cfg = TalkConfig.from_env({**BASE, "STC_PHRASE_SECTIONS": " Beim Arzt ; ;Office "})
     assert cfg.phrase_sections == ("Beim Arzt", "Office")
     assert TalkConfig.from_env({**BASE, "STC_PHRASE_SECTIONS": ""}).phrase_sections == ()
+
+
+def test_report_model_and_mein_tag_ladder_defaults() -> None:
+    cfg = TalkConfig.from_env(BASE)
+    assert cfg.report_model == "claude-sonnet-5"
+    assert cfg.mein_tag_ladder == LadderTimings(15.0, 25.0, 35.0)
+
+
+def test_mein_tag_ladder_from_env_and_invalid() -> None:
+    cfg = TalkConfig.from_env({**BASE, "STC_MEIN_TAG_LADDER_SECONDS": "10,20,30", "STC_REPORT_MODEL": "m"})
+    assert cfg.mein_tag_ladder == LadderTimings(10.0, 20.0, 30.0)
+    assert cfg.report_model == "m"
+    with pytest.raises(ConfigError, match="STC_MEIN_TAG_LADDER_SECONDS"):
+        TalkConfig.from_env({**BASE, "STC_MEIN_TAG_LADDER_SECONDS": "30,20,10"})

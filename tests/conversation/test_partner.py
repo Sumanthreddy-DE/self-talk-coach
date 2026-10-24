@@ -165,3 +165,67 @@ def test_phrase_seed_is_framed_as_role_play_question_seed_as_question() -> None:
     assert "Bis wann soll ich das fertig machen?" in content
     partner.respond("Ja.", "Wie gehen Sie mit Fehlern um?", section="Interview: Core")
     assert "Frage an den Lerner" in client.calls[-1][1][-1]["content"]
+
+
+def test_openai_client_passes_max_tokens_and_temperature() -> None:
+    from types import SimpleNamespace
+
+    from self_talk_coach.conversation.partner import OpenAIChatClient
+
+    seen: dict = {}
+
+    def create(**kwargs):
+        seen.update(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="{}"))])
+
+    client = OpenAIChatClient("https://gw.example/v1", "k", max_tokens=3000, temperature=0.2)
+    client._client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    assert client.complete("m", [{"role": "user", "content": "x"}], 5.0) == "{}"
+    assert seen["max_tokens"] == 3000 and seen["temperature"] == 0.2
+
+
+def test_comprehension_impulse_replaces_seed() -> None:
+    from self_talk_coach.conversation.partner import COMPREHENSION_IMPULSE
+
+    client = FakeClient({"p": [json.dumps(GOOD)], "f": []})
+    Partner(client, "p", "f", "SYS").respond("Ich arbeite.", "Hobbys?", section="S", comprehension=True)
+    content = client.calls[0][1][-1]["content"]
+    assert COMPREHENSION_IMPULSE in content and "Hobbys?" not in content
+
+
+def test_drop_recast_removes_recast_from_spoken_text() -> None:
+    client = FakeClient({"p": [json.dumps(GOOD)], "f": []})
+    reply = Partner(client, "p", "f", "SYS", drop_recast=True).respond("Ich war müde.", "x")
+    assert reply.turn.recast is None
+    assert reply.turn.spoken_text() == GOOD["reply"]
+
+
+def test_mein_tag_prompt_rules() -> None:
+    from self_talk_coach.conversation.partner import build_mein_tag_prompt
+
+    prompt = build_mein_tag_prompt("Wohnt in Reutlingen.")
+    assert "Rückerstattung" in prompt  # English word taken up in German
+    assert "recast" in prompt and "immer null" in prompt
+    assert prompt.rstrip().endswith("Wohnt in Reutlingen.")
+
+
+def test_interview_section_plays_interviewer_with_sie() -> None:
+    from self_talk_coach.conversation.partner import INTERVIEW_ROLE
+
+    client = FakeClient({"p": [json.dumps(GOOD), json.dumps(GOOD)], "f": []})
+    partner = Partner(client, "p", "f", "SYS")
+    partner.opening("Was sind Ihre Stärken?", section="Interview: Core")
+    partner.respond("Ich arbeite.", "Hobbys?", section="Daily")
+    interview, daily = (c[1][-1]["content"] for c in client.calls)
+    assert INTERVIEW_ROLE in interview and "Was sind Ihre Stärken?" in interview
+    assert INTERVIEW_ROLE not in daily
+
+
+def test_interview_comprehension_check_uses_sie() -> None:
+    from self_talk_coach.conversation.partner import COMPREHENSION_IMPULSE, COMPREHENSION_IMPULSE_INTERVIEW
+
+    client = FakeClient({"p": [json.dumps(GOOD)], "f": []})
+    Partner(client, "p", "f", "SYS").respond("Ich arbeite.", "x", section="Interview: Behavioral", comprehension=True)
+    content = client.calls[0][1][-1]["content"]
+    assert COMPREHENSION_IMPULSE_INTERVIEW in content and COMPREHENSION_IMPULSE not in content
+    assert "Sie haben gesagt" in content and "Du hast gesagt" not in content

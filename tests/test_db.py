@@ -51,7 +51,7 @@ def test_init_db_creates_schema_and_is_idempotent(tmp_path: Path) -> None:
             ).fetchall()
         }
 
-    assert user_version == 2
+    assert user_version == 3
     assert {
         "media_files",
         "transcripts",

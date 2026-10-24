@@ -8,6 +8,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, ValidationError
 
+from self_talk_coach.conversation.question_bank import is_interview
+
 _SYSTEM_TEMPLATE = """Du bist ein Gesprächspartner aus Baden-Württemberg. Du sprichst mit einem Deutschlerner (Niveau B1).
 Regeln:
 - Kurze Antworten: 1–2 Sätze. Umgangssprachlich, natürlich, Sprachniveau B1.
@@ -32,12 +34,44 @@ Regeln:
 Antworte NUR mit JSON: {{"reply": str, "recast": str|null, "starter_phrase": str, "simpler_rephrase": str, "topic_jump": bool}}
 {profile_block}"""
 
+_MEIN_TAG_TEMPLATE = """Du bist ein guter Freund aus Baden-Württemberg. Der Lerner (Deutsch B1) erzählt dir von seinem Tag.
+Regeln:
+- Du hörst zu. "reply": genau EINE kurze Folgefrage (höchstens 12 Wörter) zu dem, was er gerade erzählt hat.
+  Kein neues Thema, keine eigene Geschichte, kein Lob.
+- Keine Korrekturen: "recast" ist immer null.
+- Benutzt der Lerner englische Wörter, nimm in deiner Folgefrage das deutsche Wort auf.
+  Beispiel: Lerner "Der Kunde wollte einen refund." → reply "Eine Rückerstattung? Und hat er sie bekommen?"
+- Erfinde nie, was der Lerner gesagt hat.
+- Bittet er um Wiederholung ("Wie bitte?"): stell deine letzte Frage noch einmal, einfacher.
+- "starter_phrase": ein Satzanfang, mit dem er weitererzählen kann (z. B. "Danach bin ich …").
+- "simpler_rephrase": deine Frage einfacher. "topic_jump": false.
+Antworte NUR mit JSON: {{"reply": str, "recast": null, "starter_phrase": str, "simpler_rephrase": str, "topic_jump": false}}
+{profile_block}"""
+
 _FENCE = re.compile(r"`{3}(?:json)?")
 _OBJECT = re.compile(r"\{.*\}", re.DOTALL)
 _SENTENCE_END = re.compile(r"(?<=[.?!])\s+")
 _WORD = re.compile(r"\w+")
 _W_QUESTION = re.compile(
     r"^(wer|wen|wem|was|wann|wo|woher|wohin|warum|wieso|weshalb|wie|welche[rsmn]?|wofür|womit|worüber)$"
+)
+COMPREHENSION_IMPULSE = (
+    "Verständnis-Check: Stell jetzt keine neue Frage. Erzähl in 2–3 kurzen Sätzen (B1) etwas aus deiner Rolle "
+    "oder zum Thema, mit zwei konkreten Details (z. B. Uhrzeit, Ort, Zahl, Name). "
+    "Ende mit: \"Erzähl kurz nach, was ich gerade gesagt habe.\" recast null. "
+    "starter_phrase: \"Du hast gesagt, dass …\""
+)
+INTERVIEW_ROLE = (
+    "Rolle: Vorstellungsgespräch. Du bist Personalerin und führst das Gespräch. "
+    "Sieze den Lerner in allem, auch im recast (z. B. \"Ah, Sie haben Maschinenbau studiert?\") "
+    "und im starter_phrase. Freundlich, aber professionell."
+)
+COMPREHENSION_IMPULSE_INTERVIEW = (
+    f"{INTERVIEW_ROLE}\n"
+    "Verständnis-Check: Stell jetzt keine neue Frage. Erzähl in 2–3 kurzen Sätzen (B1) etwas über die Firma "
+    "oder die Stelle, mit zwei konkreten Details (z. B. Teamgröße, Ort, Zahl, Name). "
+    "Ende mit: \"Fassen Sie kurz zusammen, was ich gerade gesagt habe.\" recast null. "
+    "starter_phrase: \"Sie haben gesagt, dass …\""
 )
 # Share of a reply sentence's words already in the recast at which it counts as an echo.
 # Calibrated on real DeepSeek turns 2026-10-07: echoes 0.67–1.0, new questions 0–0.25.
@@ -96,23 +130,33 @@ class ChatClient(Protocol):
 class OpenAIChatClient:
     """OpenAI-compatible gateway client. No SDK retries: the Partner handles fallback itself."""
 
-    def __init__(self, base_url: str, api_key: str) -> None:
+    def __init__(self, base_url: str, api_key: str, *, max_tokens: int = 400, temperature: float = 0.8) -> None:
         from openai import OpenAI
 
         self._client = OpenAI(base_url=base_url, api_key=api_key, max_retries=0)
+        self._max_tokens = max_tokens
+        self._temperature = temperature
 
     def complete(self, model: str, messages: list[dict[str, str]], timeout: float) -> str:
         resp = self._client.chat.completions.create(
-            model=model, messages=messages, temperature=0.8, max_tokens=400, timeout=timeout
+            model=model, messages=messages, temperature=self._temperature,
+            max_tokens=self._max_tokens, timeout=timeout,
         )
         if not getattr(resp, "choices", None):
             raise PartnerFormatError(f"{model}: response without choices")
         return resp.choices[0].message.content or ""
 
 
+def _profile_block(profile: str | None) -> str:
+    return f"\nÜber den Lerner:\n{profile.strip()}" if profile and profile.strip() else ""
+
+
 def build_system_prompt(profile: str | None) -> str:
-    block = f"\nÜber den Lerner:\n{profile.strip()}" if profile and profile.strip() else ""
-    return _SYSTEM_TEMPLATE.format(profile_block=block)
+    return _SYSTEM_TEMPLATE.format(profile_block=_profile_block(profile))
+
+
+def build_mein_tag_prompt(profile: str | None) -> str:
+    return _MEIN_TAG_TEMPLATE.format(profile_block=_profile_block(profile))
 
 
 def parse_partner_turn(raw: str) -> PartnerTurn:
@@ -126,6 +170,8 @@ def parse_partner_turn(raw: str) -> PartnerTurn:
 
 
 def _impulse(seed: str, section: str, phrase: bool = False) -> str:
+    if is_interview(section):
+        return f"{INTERVIEW_ROLE}\nFrage an den Lerner (Bereich: {section}): {seed}"
     where = f" (Bereich: {section})" if section else ""
     if phrase:
         return (
@@ -150,8 +196,10 @@ class Partner:
         system_prompt: str,
         timeout: float = 15.0,
         max_history: int = 12,
+        drop_recast: bool = False,
     ) -> None:
         self._client = client
+        self._drop_recast = drop_recast
         self._models = (primary, fallback)
         self._system = {"role": "system", "content": system_prompt}
         self._timeout = timeout
@@ -167,8 +215,14 @@ class Partner:
             f"Beginne das Gespräch mit einer kurzen Begrüßung und einer Frage.\n{_impulse(seed, section, phrase)}"
         )
 
-    def respond(self, learner_text: str, seed: str, section: str = "", phrase: bool = False) -> PartnerReply:
-        return self._turn(f"Lerner: {learner_text}\n{_impulse(seed, section, phrase)}")
+    def respond(
+        self, learner_text: str, seed: str, section: str = "", phrase: bool = False, comprehension: bool = False
+    ) -> PartnerReply:
+        if comprehension:
+            impulse = COMPREHENSION_IMPULSE_INTERVIEW if is_interview(section) else COMPREHENSION_IMPULSE
+        else:
+            impulse = _impulse(seed, section, phrase)
+        return self._turn(f"Lerner: {learner_text}\n{impulse}")
 
     def _turn(self, user_content: str) -> PartnerReply:
         user = {"role": "user", "content": user_content}
@@ -178,6 +232,8 @@ class Partner:
             try:
                 raw = self._client.complete(model, messages, self._timeout)
                 turn = parse_partner_turn(raw)
+                if self._drop_recast and turn.recast:
+                    turn = turn.model_copy(update={"recast": None})  # Mein Tag: no corrections while he talks
             except Exception as exc:  # noqa: BLE001 — any failure moves to the next model
                 errors.append(f"{model}: {type(exc).__name__}: {exc}")
                 continue

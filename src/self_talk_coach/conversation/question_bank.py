@@ -7,6 +7,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Protocol
 
 _ITEM = re.compile(r"^\s*\d+\.\s+(.+?)\s*$")
 
@@ -42,6 +43,15 @@ def load_banks(paths: Sequence[Path]) -> list[Seed]:
     return seeds
 
 
+def is_interview(section: str) -> bool:
+    """Bank sections named "Interview…" are played as a job interview: "Sie", questions in bank order."""
+    return section.strip().lower().startswith("interview")
+
+
+def _picker(seeds: Sequence[Seed], rng: random.Random) -> SeedPicker:
+    return SeedPicker(seeds, rng, ordered=bool(seeds) and all(is_interview(s.section) for s in seeds))
+
+
 def mark_phrase_sections(seeds: Sequence[Seed], section_names: Sequence[str]) -> list[Seed]:
     """Flag seeds whose section name contains one of `section_names` (case-insensitive)."""
     wanted = [name.lower() for name in section_names]
@@ -57,6 +67,19 @@ def filter_scenario(seeds: Sequence[Seed], scenario: str | None) -> list[Seed]:
         sections = sorted({s.section for s in seeds})
         raise ValueError(f"No section matches {scenario!r}. Available: {', '.join(sections)}")
     return chosen
+
+
+class Deck(Protocol):
+    """What a conversation session needs from its seed source (ScenarioDeck, MeinTagDeck)."""
+
+    label: str
+
+    def next(self) -> Seed: ...
+    def options(self) -> list[str]: ...
+    @property
+    def current_option(self) -> int: ...
+    def choose(self, option: int) -> str: ...
+    def switch(self) -> str: ...
 
 
 class ScenarioDeck:
@@ -79,7 +102,7 @@ class ScenarioDeck:
         else:
             self._index = self._sections.index(matched[-1])
             self.label = matched[0] if len(matched) == 1 else scenario
-        self._picker = SeedPicker(chosen, rng)
+        self._picker = _picker(chosen, rng)
 
     def next(self) -> Seed:
         return self._picker.next()
@@ -95,11 +118,11 @@ class ScenarioDeck:
     def choose(self, option: int) -> str:
         if option == 0:
             self._index, self.label = -1, self.MIXED
-            self._picker = SeedPicker(self._seeds, self._rng)
+            self._picker = _picker(self._seeds, self._rng)
             return self.label
         self._index = option - 1
         self.label = self._sections[self._index]
-        self._picker = SeedPicker([s for s in self._seeds if s.section == self.label], self._rng)
+        self._picker = _picker([s for s in self._seeds if s.section == self.label], self._rng)
         return self.label
 
     def switch(self) -> str:
@@ -107,17 +130,22 @@ class ScenarioDeck:
 
 
 class SeedPicker:
-    """Random seeds without repeats until every seed was used once, then a fresh shuffle."""
+    """Random seeds without repeats until every seed was used once, then a fresh shuffle.
 
-    def __init__(self, seeds: Sequence[Seed], rng: random.Random) -> None:
+    `ordered`: bank order instead (an interview opens with "Erzählen Sie etwas über sich").
+    """
+
+    def __init__(self, seeds: Sequence[Seed], rng: random.Random, ordered: bool = False) -> None:
         if not seeds:
             raise ValueError("SeedPicker needs at least one seed")
         self._seeds = list(seeds)
         self._rng = rng
+        self._ordered = ordered
         self._queue: list[Seed] = []
 
     def next(self) -> Seed:
         if not self._queue:
-            self._queue = self._seeds[:]
-            self._rng.shuffle(self._queue)
+            self._queue = self._seeds[::-1]
+            if not self._ordered:
+                self._rng.shuffle(self._queue)
         return self._queue.pop()

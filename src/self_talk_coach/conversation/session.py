@@ -14,12 +14,13 @@ import numpy as np
 from self_talk_coach.conversation.audio_store import SAMPLE_RATE, encode_opus, wav_bytes
 from self_talk_coach.conversation.help_ladder import (
     NUDGE_PHRASES,
+    NUDGE_PHRASES_SIE,
     LadderStep,
     LadderTimings,
     step_for,
 )
-from self_talk_coach.conversation.partner import PartnerReply, PartnerUnavailable, fallback_reply
-from self_talk_coach.conversation.question_bank import ScenarioDeck
+from self_talk_coach.conversation.partner import PartnerReply, PartnerUnavailable, fallback_reply, is_interview
+from self_talk_coach.conversation.question_bank import Deck, Seed
 from self_talk_coach.conversation.stt import LearnerTranscriber, LearnerTranscript
 from self_talk_coach.conversation.tts import Voice
 from self_talk_coach.db import (
@@ -32,9 +33,12 @@ from self_talk_coach.domain import ConversationStatus, TurnSpeaker
 from self_talk_coach.paths import AppPaths
 
 PARDON = "Wie bitte? Kannst du das nochmal sagen?"
+PARDON_SIE = "Wie bitte? Können Sie das noch einmal sagen?"
 MIN_SPEECH_SECONDS = 0.4
 POLL_SECONDS = 0.05
 MAX_RECORD_SECONDS = 60.0
+INTERVIEW_MAX_RECORD_SECONDS = 120.0  # interview answers run long; 60 s cut one off mid-sentence
+COMPREHENSION_EVERY = 4  # every Nth partner turn retells instead of asking (0 = off)
 KEYS = "t = Text · f = Szenarien · w = nächstes · q = Ende"
 # Keys that cut playback short; the key is then handled as if pressed while waiting.
 INTERRUPT_KEYS = frozenset({" ", "q", "r", "s", "w", "f"})
@@ -69,7 +73,7 @@ class SessionDeps:
     recorder: Recorder
     keys: KeyInput
     clock: Clock
-    picker: ScenarioDeck
+    picker: Deck
     conn: sqlite3.Connection
     paths: AppPaths
     ladder: LadderTimings
@@ -78,6 +82,8 @@ class SessionDeps:
     store_audio: Callable[[bytes, Path], None] = encode_opus
     out: Callable[[str], None] = print
     status: Callable[[str], None] = print
+    max_record_seconds: float = MAX_RECORD_SECONDS
+    comprehension_every: int = COMPREHENSION_EVERY
 
 
 @dataclass
@@ -101,6 +107,10 @@ class _State:
     seed_text: str = ""
     reply: PartnerReply | None = None
     audio: bytes = b""
+    partner_turns: int = 0
+    check: bool = False  # current partner turn is a comprehension check
+    interview: bool = False  # current section is a job interview: helpers say "Sie"
+    picked: Seed | None = None  # bank seed behind the current partner turn
 
 
 class ConversationSession:
@@ -154,19 +164,30 @@ class ConversationSession:
     # --- partner side -------------------------------------------------------
 
     def _partner_turn(self, *, opening: bool, learner_text: str) -> None:
-        picked = self._d.picker.next()
+        every = self._d.comprehension_every
+        check = not opening and every > 0 and (self._s.partner_turns + 1) % every == 0
+        # A check asks no bank question, so it must not use one up: interview questions would be skipped.
+        picked = self._s.picked if check and self._s.picked else self._d.picker.next()
         seed = picked.text
         try:
             if opening:
                 reply = self._d.partner.opening(seed, section=picked.section, phrase=picked.phrase)
             else:
                 reply = self._d.partner.respond(
-                    learner_text, seed, section=picked.section, phrase=picked.phrase
+                    learner_text, seed, section=picked.section, phrase=picked.phrase, comprehension=check
                 )
         except PartnerUnavailable as exc:
             self._d.status(f"[Hinweis] KI-Partner nicht erreichbar, ich lese die Frage aus der Liste vor. Grund: {str(exc)[:160]}")
+            if check:  # the fallback reads a bank question aloud: take a fresh one, not the last
+                picked = self._d.picker.next()
+                seed = picked.text
             reply = fallback_reply(seed)
+            check = False
+        self._s.partner_turns += 1
+        self._s.check = check
         self._s.seed_text = seed
+        self._s.picked = picked
+        self._s.interview = is_interview(picked.section)
         self._s.reply = reply
         self._s.audio = self._d.voice.synthesize(reply.turn.spoken_text())
 
@@ -187,6 +208,7 @@ class ConversationSession:
             seed=s.seed_text,
             partner_turn_json=s.reply.turn.model_dump_json(),
             llm_model=s.reply.model,
+            comprehension_check=s.check,
         )
 
     # --- waiting for the learner -------------------------------------------
@@ -259,7 +281,7 @@ class ConversationSession:
         assert self._s.reply is not None
         turn = self._s.reply.turn
         if step == LadderStep.NUDGE:
-            return self._d.rng.choice(NUDGE_PHRASES)
+            return self._d.rng.choice(NUDGE_PHRASES_SIE if self._s.interview else NUDGE_PHRASES)
         if step == LadderStep.STARTER:
             return turn.starter_phrase
         if step == LadderStep.REPHRASE:
@@ -272,18 +294,25 @@ class ConversationSession:
         d, s = self._d, self._s
         d.recorder.start()
         d.status("[Aufnahme] ... SPACE = Stopp")
+        limit = max(d.max_record_seconds, INTERVIEW_MAX_RECORD_SECONDS) if s.interview else d.max_record_seconds
         record_started = d.clock.now()
-        while d.keys.poll() != " " and d.clock.now() - record_started < MAX_RECORD_SECONDS:
+        stopped = False
+        while d.clock.now() - record_started < limit:
+            if d.keys.poll() == " ":
+                stopped = True
+                break
             d.clock.sleep(POLL_SECONDS)
         samples = d.recorder.stop()
+        if not stopped:
+            d.status(f"[Hinweis] Aufnahme nach {limit:.0f} s automatisch gestoppt.")
         d.status("[...] Partner denkt nach")
         if len(samples) < MIN_SPEECH_SECONDS * SAMPLE_RATE:
-            self._play(d.voice.synthesize(PARDON))
+            self._play(d.voice.synthesize(PARDON_SIE if s.interview else PARDON))
             return None
         audio = wav_bytes(samples)
         transcript = self._transcribe_with_retry(audio)
         if transcript is None or not transcript.text.strip():
-            self._play(d.voice.synthesize(PARDON))
+            self._play(d.voice.synthesize(PARDON_SIE if s.interview else PARDON))
             return None
         index = self._next_index()
         audio_path = self._store(audio, index, "learner")

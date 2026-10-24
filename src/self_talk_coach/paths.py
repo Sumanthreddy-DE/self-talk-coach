@@ -68,6 +68,10 @@ class AppPaths:
         return self.conversations_root / f"{conversation_id:04d}"
 
     @property
+    def word_list(self) -> Path:
+        return self.data_root / "neue-woerter.md"
+
+    @property
     def learner_profile_path(self) -> Path:
         return self.data_root / "learner-profile.md"
 

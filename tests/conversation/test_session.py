@@ -94,6 +94,7 @@ class FakePartner:
         self.learner_texts: list[str] = []
         self.sections: list[str] = []
         self.phrases: list[bool] = []
+        self.checks: list[bool] = []
         self.resets = 0
 
     def reset(self) -> None:
@@ -104,10 +105,12 @@ class FakePartner:
         self.phrases.append(phrase)
         return self._next()
 
-    def respond(self, learner_text: str, seed: str, section: str = "", phrase: bool = False) -> PartnerReply:
+    def respond(self, learner_text: str, seed: str, section: str = "", phrase: bool = False,
+                comprehension: bool = False) -> PartnerReply:
         self.learner_texts.append(learner_text)
         self.sections.append(section)
         self.phrases.append(phrase)
+        self.checks.append(comprehension)
         return self._next()
 
     def _next(self) -> PartnerReply:
@@ -368,3 +371,109 @@ def test_f_then_enter_without_number_keeps_scenario(tmp_path: Path) -> None:
     assert deps.partner.sections == ["A"]
     assert deps.partner.resets == 0
     assert len(list_turns(conn, cid)) == 1
+
+
+def test_every_fourth_partner_turn_is_a_comprehension_check(tmp_path: Path) -> None:
+    deps, conn, _, _, _ = _deps(
+        tmp_path,
+        keys_script=[(1.0, " "), (2.0, " "), (3.0, " "), (4.0, " "), (5.0, " "), (6.0, " "), (7.0, "q")],
+        recordings=[1.0, 1.0, 1.0],
+        texts=["Eins.", "Zwei.", "Drei."],
+        replies=[_reply("A?"), _reply("B?"), _reply("C?"), _reply("Ich war um acht da. Erzähl kurz nach.")],
+    )
+    cid = ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert deps.partner.checks == [False, False, True]
+    partner_rows = [t for t in list_turns(conn, cid) if t["speaker"] == "partner"]
+    assert [t["comprehension_check"] for t in partner_rows] == [0, 0, 0, 1]
+
+
+def test_comprehension_check_off_when_every_is_zero(tmp_path: Path) -> None:
+    deps, conn, _, _, _ = _deps(
+        tmp_path,
+        keys_script=[(1.0, " "), (2.0, " "), (3.0, " "), (4.0, " "), (5.0, " "), (6.0, " "), (7.0, "q")],
+        recordings=[1.0, 1.0, 1.0],
+        texts=["Eins.", "Zwei.", "Drei."],
+        replies=[_reply("A?"), _reply("B?"), _reply("C?"), _reply("D?")],
+    )
+    deps.comprehension_every = 0
+    ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert deps.partner.checks == [False, False, False]
+
+
+def test_record_limit_comes_from_deps(tmp_path: Path) -> None:
+    deps, _, _, _, _ = _deps(
+        tmp_path, keys_script=[(1.0, " "), (100.0, " "), (101.0, "q")],
+        recordings=[99.0], texts=["Heute war viel los."], replies=[_reply("Und?"), _reply("Und dann?")],
+    )
+    stops: list[float] = []
+    original_stop = deps.recorder.stop
+
+    def stop():
+        stops.append(deps.clock.now())
+        return original_stop()
+
+    deps.recorder.stop = stop
+    deps.max_record_seconds = 180.0
+    ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert stops and stops[0] >= 100.0  # default 60 s would have cut at 61 s
+
+
+def test_interview_section_nudges_and_pardons_with_sie(tmp_path: Path) -> None:
+    from self_talk_coach.conversation.help_ladder import NUDGE_PHRASES_SIE
+    from self_talk_coach.conversation.session import PARDON_SIE
+
+    deps, _, player, _, _ = _deps(
+        tmp_path,
+        keys_script=[(5.0, " "), (5.1, " "), (6.0, "q")],
+        recordings=[0.1], texts=[],
+        replies=[_reply("Was sind Ihre Stärken?")],
+    )
+    deps.picker = ScenarioDeck([Seed("Interview: Core", "Was sind Ihre Stärken?")], None, random.Random(0))
+    ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert any(p.decode() in NUDGE_PHRASES_SIE for p in player.played)
+    assert not any(p.decode() in NUDGE_PHRASES for p in player.played)
+    assert PARDON_SIE.encode() in player.played and PARDON.encode() not in player.played
+
+
+def test_interview_answer_may_run_120_s_and_cut_off_is_announced(tmp_path: Path) -> None:
+    deps, conn, _, _, _ = _deps(
+        tmp_path, keys_script=[(1.0, " "), (125.0, "q")],
+        recordings=[120.0], texts=["Zuerst habe ich an der Universität gearbeitet."],
+        replies=[_reply("Erzählen Sie über sich."), _reply("Warum diese Stelle?")],
+    )
+    lines: list[str] = []
+    deps.status = lines.append
+    deps.picker = ScenarioDeck([Seed("Interview: Core", "Erzählen Sie über sich.")], None, random.Random(0))
+    cid = ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert "[Hinweis] Aufnahme nach 120 s automatisch gestoppt." in lines
+    assert [t["speaker"] for t in list_turns(conn, cid)] == ["partner", "learner", "partner"]
+
+
+def test_space_stop_gives_no_cut_off_notice(tmp_path: Path) -> None:
+    deps, _, _, _, _ = _deps(
+        tmp_path, keys_script=[(1.0, " "), (3.0, " "), (5.0, "q")],
+        recordings=[2.0], texts=["Ich arbeite."], replies=[_reply("Was machst du?"), _reply("Gern?")],
+    )
+    lines: list[str] = []
+    deps.status = lines.append
+    ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert not any("automatisch gestoppt" in line for line in lines)
+
+
+def test_comprehension_check_does_not_use_up_a_bank_question(tmp_path: Path) -> None:
+    deps, _, _, _, _ = _deps(
+        tmp_path,
+        keys_script=[(1.0, " "), (2.0, " "), (3.0, " "), (4.0, " "), (5.0, " "), (6.0, " "),
+                     (7.0, " "), (8.0, " "), (9.0, "q")],
+        recordings=[1.0, 1.0, 1.0, 1.0],
+        texts=["Eins.", "Zwei.", "Drei.", "Vier."],
+        replies=[_reply("Q1?"), _reply("Q2?"), _reply("Q3?"), _reply("Erzähl kurz nach."), _reply("Q4?")],
+    )
+    seeds = [Seed("Interview: Core", f"Q{i}?") for i in range(1, 6)]
+    deps.picker = ScenarioDeck(seeds, "Interview: Core", random.Random(0))
+    asked: list[str] = []
+    respond = deps.partner.respond
+    deps.partner.respond = lambda text, seed, **kw: asked.append(seed) or respond(text, seed, **kw)
+    ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert deps.partner.checks == [False, False, True, False]
+    assert asked == ["Q2?", "Q3?", "Q3?", "Q4?"]  # Q4 comes right after the check, nothing skipped

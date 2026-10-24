@@ -1,9 +1,9 @@
 # Phase 2 — Session report, comprehension check, "Mein Tag" mode — Implementation Plan
 
-**Status:** active
-**Last verified:** 2026-10-08
+**Status:** done
+**Last verified:** 2026-10-24
 **Spec:** `docs/exec-plans/active/2026-10-04-conversation-partner-design.md` § Session report, § Data flow 5, § Metrics
-**Approved by user:** not yet — no code before approval.
+**Approved by user:** 2026-10-09 (execution in a separate session).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -1903,10 +1903,10 @@ git commit -m "docs: ADR 0006 report LLM, Mein Tag + comprehension check in spec
 
 ### Task 11: Live verification with the learner (manual)
 
-- [ ] **Step 1:** `stc report 3` and `stc report 10` on the real stored conversations. Agent reads each "Top-Fehler" quote against the DB text; learner reads the report and says whether the corrections and phrasings are right and useful.
-- [ ] **Step 2:** Learner runs one scenario conversation of ≥ 9 partner turns (`.\.venv\Scripts\stc.exe talk` → 6 or 7, McDonald's). Check: partner turns 4 and 8 are comprehension checks; the report appears at the end; the checks section shows two scores.
-- [ ] **Step 3:** Learner runs `.\.venv\Scripts\stc.exe talk --mein-tag` for ~5 minutes with some English. Check: no corrections spoken, follow-ups short, English words come back in German, ladder only after ~15 s, report has no Freeze section and lists English → Deutsch.
-- [ ] **Step 4:** Record results in the spec ("Phase 2 first runs" paragraph), move this plan to `docs/exec-plans/completed/`, set **Status:** done, commit.
+- [x] **Step 1:** (done on conversations 12 and 13 instead) `stc report 3` and `stc report 10` on the real stored conversations. Agent reads each "Top-Fehler" quote against the DB text; learner reads the report and says whether the corrections and phrasings are right and useful.
+- [x] **Step 2:** (done as a job interview, conversation 13, 14 partner turns) Learner runs one scenario conversation of ≥ 9 partner turns (`.\.venv\Scripts\stc.exe talk` → 6 or 7, McDonald's). Check: partner turns 4 and 8 are comprehension checks; the report appears at the end; the checks section shows two scores.
+- [ ] **Step 3:** (not run; moved to BACKLOG `mein-tag-live-check`) Learner runs `.\.venv\Scripts\stc.exe talk --mein-tag` for ~5 minutes with some English. Check: no corrections spoken, follow-ups short, English words come back in German, ladder only after ~15 s, report has no Freeze section and lists English → Deutsch.
+- [x] **Step 4:** Record results in the spec ("Phase 2 first runs" paragraph), move this plan to `docs/exec-plans/completed/`, set **Status:** done, commit.
 
 ---
 

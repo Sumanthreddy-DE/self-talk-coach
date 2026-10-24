@@ -1,7 +1,7 @@
 # Conversation partner — design spec
 
 **Status:** active
-**Last verified:** 2026-10-05
+**Last verified:** 2026-10-24
 **Origin:** brainstorm 2026-10-04 (started in claude-lab, finished here) → research brief `docs/references/2026-10-04-voice-partner-research.md` → grill-with-docs (CONTEXT.md + ADR 0004 updated).
 
 ## Goal
@@ -118,8 +118,10 @@ Built after the conversation from the stored Deepgram transcripts (v1 is single-
 - Listening aids used, per partner turn; hard partner sentences (replayed or show-text) listed for review
 - Comprehension checks: retelling accuracy (report LLM judges vs the partner's actual text)
 - New useful words (existing miner against the baseline)
-- For interview seeds: the learner's own model answer from the questionnaire
+- For interview seeds: the learner's own model answer — deferred until `interview-questionnaire-format`
 - Saved as Markdown under `data/conversations/<id>/report.md` and printed
+
+**Phase 2 (2026-10-08).** The report is built by `conversation/report.py` (ADR 0006): one report-LLM call per conversation for errors, better phrasings, English→German, rescue phrases and retell scores, every quoted learner fragment checked against the stored turn; freeze, listening aids and missed rescue chances computed in code; new words from `mine.py` (spaCy `de_core_news_lg`, skipped with a visible reason when the model is missing). `stc report <id>` reruns it. Mein Tag mode (`stc talk --mein-tag` or `m` in the start menu): follow-up-only partner, ladder 15/25/35 s, 180 s turns, no recast, no comprehension check, English words taken up in German by the partner and listed in the report. Comprehension check: every 4th partner turn in a scenario conversation the partner tells 2–3 sentences with two concrete details and asks for a retelling; the report scores it 0–2.
 
 ## Error handling
 
@@ -165,6 +167,8 @@ Findings carried into Phase 1:
 
 **Phase 1 first conversation (2026-10-05 → 2026-10-07).** First real run 2026-10-05 (27 turns) found the SPACE-buffer bug and the silent LLM fallback; both fixed. Verification runs 2026-10-06/07 (conversations 5–9) on DeepSeek V4 Pro via dlabkeys: every turn answered by the primary model (no fallback), ~3 s per LLM turn, recasts are second-person, audio + turns stored per turn, help ladder reaches step 3 on silence, `r`/`t` counted. Bugs found and fixed: keys were ignored while the partner spoke (playback blocked on `sd.wait()`, keys flushed) → keyboard interrupt added, SPACE/q/r/s cut playback, `t` reads along, stop via `stream.abort()` (36b436d); freeze median took the upper element for even counts (1e875a9). Interrupt confirmed live with key-level instrumentation (SPACE → recording at 1.1 s, q → end at 2.2 s). Prompt issues → BACKLOG: partner attributes phrase seeds to the learner (`bank-phrase-vs-question`), recast + reply say the same thing twice (`recast-reply-duplicate`). GLM-5.3 on the gateway returned empty content on a 20-token probe — not a fallback candidate as-is.
 
+**Phase 2 first runs (2026-10-24).** Two live job-interview runs (`stc talk --scenario "Interview: Core"`, conversations 12 and 13) on DeepSeek V4 Pro, report on Sonnet 5. Found and fixed before the runs: edge-tts 7.2.8 got HTTP 403 from the Edge endpoint and the session died before the first turn (pinned >= 7.3.1, 84cca86; the missing TTS fallback is BACKLOG S1 `tts-failure-crashes-session`); the partner said "du" to interview questions → interviewer mode for sections named "Interview…" (5f32ec1). Run 12 (7 partner turns): "Sie" throughout, check at turn 4 scored 0/2 correctly, report in ~32 s, all quotes real; but a 60 s cut-off mid-answer, capitalisation listed as errors, known words ("verstehe", "beworben") listed as new, questions in random order → all fixed (750b8f7), plus English meanings and the running list `data/neue-woerter.md` (1c044b4). Run 13 (14 partner turns): checks at turns 4, 8, 12 (0/2, 2/2, 2/2), repeat request answered with a simpler question, report in ~58 s against the new 180 s timeout, 10 new words with meanings. One bug: each check used up a bank question, so two interview questions were skipped and the deck wrapped back to the first one (fixed, 2eb9b18). Still open: partner turns often run 3 sentences (`partner-turn-length`). Mein Tag was not run live (BACKLOG `mein-tag-live-check`).
+
 ## Testing
 
 - Unit: help ladder state machine, question-bank parser + picker (no-repeat, freeze boost), `PartnerTurn` parsing (valid / malformed JSON), DB migration + turn persistence, metrics, report assembly — all with fakes for STT/LLM/TTS/audio.
@@ -174,7 +178,7 @@ Findings carried into Phase 1:
 
 ## Configuration (`.env`, never committed)
 
-`DEEPGRAM_API_KEY`, `GATEWAY_BASE_URL` (incl. `/v1`), `GATEWAY_API_KEY`, `STC_PARTNER_MODEL=deepseek-v4-pro`, `STC_FALLBACK_MODEL=claude-sonnet-5`, `STC_REPORT_MODEL=claude-sonnet-5`, `STC_TTS_VOICE=de-DE-SeraphinaMultilingualNeural`, `STC_QUESTION_BANKS`, `STC_LADDER_SECONDS=4,8,12`. (`ANTHROPIC_API_KEY` stays for the existing enrich stage.) `.env.example` gains these names with empty values.
+`DEEPGRAM_API_KEY`, `GATEWAY_BASE_URL` (incl. `/v1`), `GATEWAY_API_KEY`, `STC_PARTNER_MODEL=deepseek-v4-pro`, `STC_FALLBACK_MODEL=claude-sonnet-5`, `STC_REPORT_MODEL=claude-sonnet-5`, `STC_TTS_VOICE=de-DE-SeraphinaMultilingualNeural`, `STC_QUESTION_BANKS`, `STC_LADDER_SECONDS=4,8,12`, `STC_MEIN_TAG_LADDER_SECONDS=15,25,35`. (`ANTHROPIC_API_KEY` stays for the existing enrich stage.) `.env.example` gains these names with empty values.
 
 ## Open after v1
 
