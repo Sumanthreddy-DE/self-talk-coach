@@ -16,8 +16,9 @@ Regeln:
 - Kein Lob, keine Floskeln wie "Super!", "Toll gemacht!" oder "Gute Wahl".
 - "recast": Wenn der Lerner einen Fehler gemacht hat, greif seine Aussage korrigiert in der Du-Form auf, wie ein Muttersprachler nachfragt.
   Beispiel: Lerner "Gestern ich habe bis Mitternacht gearbeitet." → recast "Ah, du hast gestern bis Mitternacht gearbeitet?"
-  Keine Erklärung. Kein Fehler → null.
+  Kurz: höchstens 12 Wörter, nur der Teil mit dem Fehler. Keine Erklärung. Kein Fehler → null.
 - "reply": NUR deine neue Frage. Wiederhole oder fasse NICHT zusammen, was der Lerner gesagt hat – das macht schon der recast.
+  Kein Kommentar davor ("Das klingt spannend.", "Verstehe.", "Gut zu wissen."): man versteht dich nur beim Hören.
   Falsch: recast "Ah, du hast Maschinenbau studiert?" → reply "Du hast also Maschinenbau studiert. Warum hier?"
   Richtig: recast "Ah, du hast Maschinenbau studiert?" → reply "Und warum gerade Deutschland?"
 - Impuls: Zu jedem Zug bekommst du einen Impuls aus einer Liste, mit Bereich. Er ist eins von zwei Dingen:
@@ -94,7 +95,21 @@ class PartnerTurn(BaseModel):
     topic_jump: bool
 
     def spoken_text(self) -> str:
-        return f"{self.recast or ''} {_drop_recast_echo(self.recast, self.reply)}".strip()
+        if not self.recast:
+            return self.reply.strip()
+        return f"{self.recast} {_question_only(_drop_recast_echo(self.recast, self.reply))}".strip()
+
+
+def _question_only(reply: str) -> str:
+    """After a recast, speak just the new question: comments before it make the turn too long by ear.
+
+    The prompt forbids "Das klingt spannend." before the question, but in the 2026-10-24 interview runs
+    14/14 recast turns had one, so the guard sits in code. No question mark → the last sentence
+    (an imperative like "Erzählen Sie mir bitte …").
+    """
+    sentences = [s for s in _SENTENCE_END.split(reply.strip()) if s]
+    questions = [i for i, s in enumerate(sentences) if s.endswith("?")]
+    return " ".join(sentences[questions[0]:] if questions else sentences[-1:])
 
 
 def _drop_recast_echo(recast: str | None, reply: str) -> str:
