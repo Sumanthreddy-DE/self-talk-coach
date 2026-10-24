@@ -38,7 +38,6 @@ _(none)_
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
 - interview-questionnaire-format - `Myself/Interview-Prep/interview-questionnaire-de.md` has one `##` heading per question (with model answers), so `parse_bank` reads it as 11 junk seeds. Needs its own parser before the session report can show "what you could have said". *(found 2026-10-08, self-talk-coach session)*
-- talk-launcher - Double-click `.bat` (repo `scripts/`) that opens PowerShell in the repo root and runs `.venv\Scripts\stc.exe talk` (start menu then picks the scenario), so the learner never types the venv path. *(found 2026-10-08, self-talk-coach session)*
 - anki-export - Approved practice items → Anki `.apkg` (genanki), planned in the core design (`stc export anki`). Design to reuse: weekend-MVP blueprint S5 — structured enrich prompt (DE definition, EN translation, gender/separable-prefix, example from the learner's own sentence), prompt caching with the 1024-token prefix minimum (assert `cache_creation_input_tokens > 0` then `cache_read_input_tokens > 0`), `--max-cards` cost cap.
 - stale-state-doing - `STATE.md` Doing/Resume still say `feat/conversation-loop` awaits merge, but `main` already contains it (57e8348). Next session here: refresh Doing + Resume here from git log. *(found 2026-10-08, claude-lab session)*
 - mein-tag-switch-keys - In Mein Tag, w/f reset the partner's memory and reopen; disable or hide them in that mode if it bites.
@@ -61,6 +60,7 @@ _(items currently being worked — move from Open when started, back to Open if 
 - check-uses-up-seed - Comprehension checks consumed a bank question; interview skipped Schwächen/fünf Jahre and wrapped to the first question (2eb9b18)
 - tts-failure-crashes-session - Voice failure prints the reason and the partner text, turn stored without audio, conversation goes on; any crash marks the conversation aborted; conversation 11 set to aborted (7db247a)
 - partner-turn-length - After a recast only the new question is spoken (code guard), prompt asks for recasts <= 12 words and no comment; live probe: one-question replies, recasts 8-16 words (see commit)
+- talk-launcher - `scripts/talk.bat`: double-click opens the repo root and runs `stc talk` (start menu), args pass through, window stays open at the end; tested from another cwd
 - word-list - New words get English meanings (same report LLM call) and one-sentence examples, and collect in `data/neue-woerter.md` with checkboxes that survive reruns (1c044b4)
 - vocab-miner - `mine.py`: spaCy lemmas (NOUN/VERB/ADJ/ADV, no stopwords) outside the B1 baseline and not used by the learner; partner `out_of_baseline_ratio` per turn. Missing `de_core_news_lg` → report section skipped with a visible reason (0abd635)
 - report-rescue-phrases - Session report lists rescue phrases used (report LLM, quote-verified) and missed chances (ladder ≥ starter, no rescue phrase); never counted as listening failures (da997c2)
