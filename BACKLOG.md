@@ -18,7 +18,7 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 
 ## Open — S1 (blocker / broken demo)
 
-_(none yet)_
+- tts-failure-crashes-session - edge-tts 7.2.8 got HTTP 403 from speech.platform.bing.com on 2026-10-24 (Sec-MS-GEC version outdated); `synthesize` raised and `stc talk` died with a traceback before the first partner turn, leaving conversation 11 `active` with no `ended_at`. Dependency fixed (edge-tts >= 7.3.1, verified 20 kB audio). Still open: a TTS failure should show a status line and fall back to printing the partner text, and an aborted session should be marked aborted, not left active. *(found 2026-10-24, self-talk-coach session)*
 
 ---
 

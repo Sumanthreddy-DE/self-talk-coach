@@ -33,7 +33,7 @@ dependencies = [
     "sounddevice>=0.4.6",
     "soundfile>=0.12",
     "openai>=1.40",
-    "edge-tts>=7.0",
+    "edge-tts>=7.3.1",  # 7.2.8 gets 403 from the Edge TTS endpoint since 2026-10
 ]
 
 [project.optional-dependencies]
