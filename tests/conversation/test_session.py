@@ -458,3 +458,22 @@ def test_space_stop_gives_no_cut_off_notice(tmp_path: Path) -> None:
     deps.status = lines.append
     ConversationSession(deps, scenario=None, llm_label="x").run()
     assert not any("automatisch gestoppt" in line for line in lines)
+
+
+def test_comprehension_check_does_not_use_up_a_bank_question(tmp_path: Path) -> None:
+    deps, _, _, _, _ = _deps(
+        tmp_path,
+        keys_script=[(1.0, " "), (2.0, " "), (3.0, " "), (4.0, " "), (5.0, " "), (6.0, " "),
+                     (7.0, " "), (8.0, " "), (9.0, "q")],
+        recordings=[1.0, 1.0, 1.0, 1.0],
+        texts=["Eins.", "Zwei.", "Drei.", "Vier."],
+        replies=[_reply("Q1?"), _reply("Q2?"), _reply("Q3?"), _reply("Erzähl kurz nach."), _reply("Q4?")],
+    )
+    seeds = [Seed("Interview: Core", f"Q{i}?") for i in range(1, 6)]
+    deps.picker = ScenarioDeck(seeds, "Interview: Core", random.Random(0))
+    asked: list[str] = []
+    respond = deps.partner.respond
+    deps.partner.respond = lambda text, seed, **kw: asked.append(seed) or respond(text, seed, **kw)
+    ConversationSession(deps, scenario=None, llm_label="x").run()
+    assert deps.partner.checks == [False, False, True, False]
+    assert asked == ["Q2?", "Q3?", "Q3?", "Q4?"]  # Q4 comes right after the check, nothing skipped

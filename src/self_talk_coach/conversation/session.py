@@ -20,7 +20,7 @@ from self_talk_coach.conversation.help_ladder import (
     step_for,
 )
 from self_talk_coach.conversation.partner import PartnerReply, PartnerUnavailable, fallback_reply, is_interview
-from self_talk_coach.conversation.question_bank import Deck
+from self_talk_coach.conversation.question_bank import Deck, Seed
 from self_talk_coach.conversation.stt import LearnerTranscriber, LearnerTranscript
 from self_talk_coach.conversation.tts import Voice
 from self_talk_coach.db import (
@@ -110,6 +110,7 @@ class _State:
     partner_turns: int = 0
     check: bool = False  # current partner turn is a comprehension check
     interview: bool = False  # current section is a job interview: helpers say "Sie"
+    picked: Seed | None = None  # bank seed behind the current partner turn
 
 
 class ConversationSession:
@@ -163,10 +164,11 @@ class ConversationSession:
     # --- partner side -------------------------------------------------------
 
     def _partner_turn(self, *, opening: bool, learner_text: str) -> None:
-        picked = self._d.picker.next()
-        seed = picked.text
         every = self._d.comprehension_every
         check = not opening and every > 0 and (self._s.partner_turns + 1) % every == 0
+        # A check asks no bank question, so it must not use one up: interview questions would be skipped.
+        picked = self._s.picked if check and self._s.picked else self._d.picker.next()
+        seed = picked.text
         try:
             if opening:
                 reply = self._d.partner.opening(seed, section=picked.section, phrase=picked.phrase)
@@ -176,11 +178,15 @@ class ConversationSession:
                 )
         except PartnerUnavailable as exc:
             self._d.status(f"[Hinweis] KI-Partner nicht erreichbar, ich lese die Frage aus der Liste vor. Grund: {str(exc)[:160]}")
+            if check:  # the fallback reads a bank question aloud: take a fresh one, not the last
+                picked = self._d.picker.next()
+                seed = picked.text
             reply = fallback_reply(seed)
             check = False
         self._s.partner_turns += 1
         self._s.check = check
         self._s.seed_text = seed
+        self._s.picked = picked
         self._s.interview = is_interview(picked.section)
         self._s.reply = reply
         self._s.audio = self._d.voice.synthesize(reply.turn.spoken_text())
