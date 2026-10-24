@@ -18,7 +18,7 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 
 ## Open — S1 (blocker / broken demo)
 
-- tts-failure-crashes-session - edge-tts 7.2.8 got HTTP 403 from speech.platform.bing.com on 2026-10-24 (Sec-MS-GEC version outdated); `synthesize` raised and `stc talk` died with a traceback before the first partner turn, leaving conversation 11 `active` with no `ended_at`. Dependency fixed (edge-tts >= 7.3.1, verified 20 kB audio). Still open: a TTS failure should show a status line and fall back to printing the partner text, and an aborted session should be marked aborted, not left active. *(found 2026-10-24, self-talk-coach session)*
+_(none)_
 
 ---
 
@@ -27,7 +27,6 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 - first-language-analysis - Generate pending correction and upgrade candidates from stored transcript segments. Plan: `docs/superpowers/plans/2026-06-02-first-language-analysis.md` (paused 2026-09-28, not started).
 - review-queue - Add commands to list, show, approve, reject, and defer learning candidates.
 - question-banks-missing - Conversation partner needs question banks the Myself banks lack: McDonald's shift/colleague scenario, telc B1 Sprechen cards (Kontakt aufnehmen, Präsentation, gemeinsam planen), larger free-talk topic bank. Draft → user approval before committing. Existing banks read in place via `.env` path (PII, never copied into repo): `Myself/German-Learning/question-bank.md`, `Myself/Interview-Prep/interview-questionnaire-de.md`. First task after conversation-partner setup. 2026-10-07/08: McDonald's (customers, manager, colleagues, workload, friendly customers) and cold-call role-plays done in `Myself/German-Learning/scenario-bank.md`; still missing: telc B1 Sprechen cards, free-talk bank.
-- partner-turn-length - Since phrase seeds became role-plays (2026-10-07), partner turns often run 3–4 sentences (scene-setting + answer + question) despite the 1–2 sentence rule; long turns are hard by ear. Also soft recast paraphrases slip past the echo guard ("Hm, du weißt also nicht genau, warum …?", word overlap < 0.6). Watch in daily use; options: max-sentence trim in code, or tighter prompt.
 - llm-provider-reliability - dlabkeys gateway grants credits daily; on 2026-10-05 the day's credits ran out (429 "hobbyist plan has expired … Free tier") after spikes + tests. gpt-6-luna/sol listed but unavailable. Free-tier `space-bunny` returned empty content in 2/3 turns. Decide: renewed dlabkeys vs official DeepSeek API (config-only switch). Consider a startup preflight call so `stc talk` fails fast instead of falling back every turn. 2026-10-06: credits back, DeepSeek V4 Pro + Sonnet 5 answer in ~2.5 s; `glm-5-3` returned empty content on a 20-token probe.
 - web-ui - Browser frontend for the conversation partner after terminal v1 (also the cheapest path to phone use over LAN). Candidate: Chainlit (Apache-2.0, 12.5k★, community-maintained since 2025-05). Its cookbook `openai-whisper` example (mic → whisper → LLM → ElevenLabs) matches our loop, but the cookbook has no license (ideas only) and was last pushed 2025-08. Needs: hidden partner text, help-ladder timers, freeze-time capture in the browser.
 - plan-location - Plans/spec live in `docs/superpowers/` (blocked for new files by harness hook). Decide: move M1/M2 plans to `docs/exec-plans/completed/`, M3 plan + spec to `docs/exec-plans/`. Separate decision from the 2026-09-28 status triage.
@@ -60,6 +59,8 @@ _(items currently being worked — move from Open when started, back to Open if 
 - report-case-noise - Report no longer lists capitalisation/punctuation as errors: prompt rule + code guard in verify_findings (750b8f7)
 - vocab-miner-noise-filters - Partly: inflected forms of baseline words count as known ("Verstehe" -> verstehen). freq/NER filters and ignore.txt still not built; reopen if junk shows (750b8f7)
 - check-uses-up-seed - Comprehension checks consumed a bank question; interview skipped Schwächen/fünf Jahre and wrapped to the first question (2eb9b18)
+- tts-failure-crashes-session - Voice failure prints the reason and the partner text, turn stored without audio, conversation goes on; any crash marks the conversation aborted; conversation 11 set to aborted (7db247a)
+- partner-turn-length - After a recast only the new question is spoken (code guard), prompt asks for recasts <= 12 words and no comment; live probe: one-question replies, recasts 8-16 words (see commit)
 - word-list - New words get English meanings (same report LLM call) and one-sentence examples, and collect in `data/neue-woerter.md` with checkboxes that survive reruns (1c044b4)
 - vocab-miner - `mine.py`: spaCy lemmas (NOUN/VERB/ADJ/ADV, no stopwords) outside the B1 baseline and not used by the learner; partner `out_of_baseline_ratio` per turn. Missing `de_core_news_lg` → report section skipped with a visible reason (0abd635)
 - report-rescue-phrases - Session report lists rescue phrases used (report LLM, quote-verified) and missed chances (ladder ≥ starter, no rescue phrase); never counted as listening failures (da997c2)
