@@ -32,6 +32,7 @@ Living list of open issues, deferred work, and known caveats. Updated each sessi
 - web-ui - Browser frontend for the conversation partner after terminal v1 (also the cheapest path to phone use over LAN). Candidate: Chainlit (Apache-2.0, 12.5k★, community-maintained since 2025-05). Its cookbook `openai-whisper` example (mic → whisper → LLM → ElevenLabs) matches our loop, but the cookbook has no license (ideas only) and was last pushed 2025-08. Needs: hidden partner text, help-ladder timers, freeze-time capture in the browser.
 - plan-location - Plans/spec live in `docs/superpowers/` (blocked for new files by harness hook). Decide: move M1/M2 plans to `docs/exec-plans/completed/`, M3 plan + spec to `docs/exec-plans/`. Separate decision from the 2026-09-28 status triage.
 - mein-tag-live-check - Phase 2 Task 11 Step 3 never ran: `stc talk --mein-tag` ~5 min with some English. Check: no spoken corrections, short follow-ups, English words come back in German, ladder only after ~15 s, report without Freeze section and with English → Deutsch. *(found 2026-10-24, self-talk-coach session)*
+- demo-clip - LinkedIn/README demo not cut yet. Source: Snipping Tool recording of conversation 13 (Interview: Core, 2026-10-24). Clipchamp: keep turns 0–4 + the printed report, cut salary (45.000 €), Reutlingen and "Geld" parts; 1080p mp4, <10 MB, 60–90 s. Upload by dragging into a GitHub issue comment, put the user-attachments link at the top of README. Then write the LinkedIn post. *(found 2026-10-24, self-talk-coach session)*
 
 ---
 
