@@ -477,3 +477,42 @@ def test_comprehension_check_does_not_use_up_a_bank_question(tmp_path: Path) -> 
     ConversationSession(deps, scenario=None, llm_label="x").run()
     assert deps.partner.checks == [False, False, True, False]
     assert asked == ["Q2?", "Q3?", "Q3?", "Q4?"]  # Q4 comes right after the check, nothing skipped
+
+
+class BrokenVoice(FakeVoice):
+    def synthesize(self, text: str, slower: bool = False) -> bytes:
+        raise RuntimeError("403, message='Invalid response status'")
+
+
+def test_voice_failure_shows_text_with_reason_and_conversation_goes_on(tmp_path: Path) -> None:
+    deps, conn, player, stored, out = _deps(
+        tmp_path, keys_script=[(5.0, " "), (7.0, " "), (9.0, "q")],
+        recordings=[2.0], texts=["Ich arbeite bei McDonald's."],
+        replies=[_reply("Was machst du beruflich?"), _reply("Gern?")],
+    )
+    lines: list[str] = []
+    deps.status = lines.append
+    deps.voice = BrokenVoice()
+    cid = ConversationSession(deps, scenario=None, llm_label="x").run()
+
+    assert any("Sprachausgabe fehlgeschlagen" in line and "403" in line for line in lines)
+    assert "Partner: Was machst du beruflich?" in out and "Partner: Gern?" in out
+    assert any(o.startswith("Partner: ") and o != "Partner: Was machst du beruflich?" and o != "Partner: Gern?"
+               for o in out)  # the nudge at 4 s is shown as text too
+    assert player.played == []
+    turns = list_turns(conn, cid)
+    assert [t["speaker"] for t in turns] == ["partner", "learner", "partner"]
+    assert turns[0]["audio_path"] is None and turns[1]["audio_path"] is not None
+    assert get_conversation(conn, cid)["status"] == "completed"
+
+
+def test_crash_marks_conversation_aborted(tmp_path: Path) -> None:
+    import pytest
+
+    deps, conn, _, _, _ = _deps(tmp_path, keys_script=[], recordings=[], texts=[],
+                                replies=[RuntimeError("disk full")])
+    deps.partner.opening = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("disk full"))
+    with pytest.raises(RuntimeError, match="disk full"):
+        ConversationSession(deps, scenario=None, llm_label="x").run()
+    row = conn.execute("select status, ended_at from conversations").fetchone()
+    assert row["status"] == "aborted" and row["ended_at"] is not None

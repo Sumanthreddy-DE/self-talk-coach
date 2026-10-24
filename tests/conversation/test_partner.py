@@ -5,6 +5,7 @@ import pytest
 from self_talk_coach.conversation.partner import (
     Partner,
     PartnerFormatError,
+    PartnerTurn,
     PartnerUnavailable,
     build_system_prompt,
     fallback_reply,
@@ -229,3 +230,22 @@ def test_interview_comprehension_check_uses_sie() -> None:
     content = client.calls[0][1][-1]["content"]
     assert COMPREHENSION_IMPULSE_INTERVIEW in content and COMPREHENSION_IMPULSE not in content
     assert "Sie haben gesagt" in content and "Du hast gesagt" not in content
+
+
+@pytest.mark.parametrize(("reply", "spoken"), [
+    ("Das klingt spannend. Sind Sie bereit umzuziehen?", "Sind Sie bereit umzuziehen?"),
+    ("Gut, dann kommen wir zu Ihrem Hintergrund. Erzählen Sie mir bitte etwas über Ihren Werdegang.",
+     "Erzählen Sie mir bitte etwas über Ihren Werdegang."),
+    ("Alles klar. Bist du hier angemeldet? Oder hast du eine Frage dazu?",
+     "Bist du hier angemeldet? Oder hast du eine Frage dazu?"),
+])
+def test_after_a_recast_only_the_new_question_is_spoken(reply: str, spoken: str) -> None:
+    turn = PartnerTurn(reply=reply, recast="Ah, Sie haben ein Tool entwickelt?", starter_phrase="",
+                       simpler_rephrase="", topic_jump=False)
+    assert turn.spoken_text() == f"Ah, Sie haben ein Tool entwickelt? {spoken}"
+
+
+def test_without_recast_the_whole_reply_is_spoken() -> None:
+    reply = "Unsere Abteilung hat zwölf Leute. Sie sitzt in Stuttgart. Fassen Sie kurz zusammen, was ich gesagt habe."
+    turn = PartnerTurn(reply=reply, recast=None, starter_phrase="", simpler_rephrase="", topic_jump=False)
+    assert turn.spoken_text() == reply

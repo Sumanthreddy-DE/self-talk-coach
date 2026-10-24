@@ -158,6 +158,11 @@ class ConversationSession:
                 self._partner_turn(opening=False, learner_text=transcript.text)
         except KeyboardInterrupt:
             status = ConversationStatus.ABORTED
+        except Exception:
+            # A crash must not leave the conversation 'active' with no end time.
+            finish_conversation(d.conn, self._s.conversation_id, ended_at=d.now_iso(),
+                                status=ConversationStatus.ABORTED)
+            raise
         finish_conversation(d.conn, self._s.conversation_id, ended_at=d.now_iso(), status=status)
         return self._s.conversation_id
 
@@ -189,22 +194,24 @@ class ConversationSession:
         self._s.picked = picked
         self._s.interview = is_interview(picked.section)
         self._s.reply = reply
-        self._s.audio = self._d.voice.synthesize(reply.turn.spoken_text())
+        self._s.audio = self._say(reply.turn.spoken_text(), announce=False)
 
     def _speak_and_store_partner(self, window: _Window) -> int:
         d, s = self._d, self._s
         assert s.reply is not None
         d.status("[Partner spricht] SPACE = unterbrechen · r = nochmal · s = langsamer · t = Text · f = Szenarien · w = nächstes · q = Ende")
+        if not s.audio:  # voice failed: the learner reads instead of listening
+            d.out(f"Partner: {s.reply.turn.spoken_text()}")
         self._play(s.audio, window)
         index = self._next_index()
-        audio_path = self._store(s.audio, index, "partner")
+        audio_path = self._store(s.audio, index, "partner") if s.audio else None
         return insert_turn(
             d.conn,
             conversation_id=s.conversation_id,
             turn_index=index,
             speaker=TurnSpeaker.PARTNER,
             text=s.reply.turn.spoken_text(),
-            audio_path=str(audio_path),
+            audio_path=str(audio_path) if audio_path else None,
             seed=s.seed_text,
             partner_turn_json=s.reply.turn.model_dump_json(),
             llm_model=s.reply.model,
@@ -243,7 +250,7 @@ class ConversationSession:
                 self._play(s.audio, window)
             elif key == "s":
                 window.slower += 1
-                self._play(d.voice.synthesize(spoken, slower=True), window)
+                self._play(self._say(spoken, slower=True), window)
             elif key == "t":
                 self._show_text(window)
             target = step_for(d.clock.now() - started, d.ladder)
@@ -251,7 +258,7 @@ class ConversationSession:
                 window.ladder_step = int(target)
                 helper = self._helper_text(target)
                 if helper:
-                    self._play(d.voice.synthesize(helper), window)
+                    self._play(self._say(helper), window)
             d.clock.sleep(POLL_SECONDS)
 
     def _scenario_menu(self) -> int | None:
@@ -307,12 +314,12 @@ class ConversationSession:
             d.status(f"[Hinweis] Aufnahme nach {limit:.0f} s automatisch gestoppt.")
         d.status("[...] Partner denkt nach")
         if len(samples) < MIN_SPEECH_SECONDS * SAMPLE_RATE:
-            self._play(d.voice.synthesize(PARDON_SIE if s.interview else PARDON))
+            self._play(self._say(PARDON_SIE if s.interview else PARDON))
             return None
         audio = wav_bytes(samples)
         transcript = self._transcribe_with_retry(audio)
         if transcript is None or not transcript.text.strip():
-            self._play(d.voice.synthesize(PARDON_SIE if s.interview else PARDON))
+            self._play(self._say(PARDON_SIE if s.interview else PARDON))
             return None
         index = self._next_index()
         audio_path = self._store(audio, index, "learner")
@@ -339,6 +346,19 @@ class ConversationSession:
 
     # --- helpers -------------------------------------------------------------
 
+    def _say(self, text: str, slower: bool = False, announce: bool = True) -> bytes:
+        """Synthesize `text`; if the voice service fails, say so and show the text instead (b"" = nothing to play).
+
+        `announce=False`: the caller prints the text itself (partner turns, at speaking time).
+        """
+        try:
+            return self._d.voice.synthesize(text, slower=slower)
+        except Exception as exc:  # noqa: BLE001 — edge-tts is an unofficial endpoint; any failure falls back to text
+            self._d.status(f"[Hinweis] Sprachausgabe fehlgeschlagen, ich zeige den Text. Grund: {type(exc).__name__}: {str(exc)[:120]}")
+            if announce:
+                self._d.out(f"Partner: {text}")
+            return b""
+
     def _play(self, audio: bytes, window: _Window | None = None) -> None:
         """Play partner audio while polling keys.
 
@@ -347,6 +367,8 @@ class ConversationSession:
         stays in the buffer for `_wait_for_learner` instead of being flushed away.
         """
         d = self._d
+        if not audio:
+            return
         d.player.start(audio)
         while d.player.is_playing():
             key = d.keys.poll()
