@@ -41,6 +41,7 @@ _(none)_
 - anki-export - Approved practice items → Anki `.apkg` (genanki), planned in the core design (`stc export anki`). Design to reuse: weekend-MVP blueprint S5 — structured enrich prompt (DE definition, EN translation, gender/separable-prefix, example from the learner's own sentence), prompt caching with the 1024-token prefix minimum (assert `cache_creation_input_tokens > 0` then `cache_read_input_tokens > 0`), `--max-cards` cost cap.
 - stale-state-doing - `STATE.md` Doing/Resume still say `feat/conversation-loop` awaits merge, but `main` already contains it (57e8348). Next session here: refresh Doing + Resume here from git log. *(found 2026-10-08, claude-lab session)*
 - mein-tag-switch-keys - In Mein Tag, w/f reset the partner's memory and reopen; disable or hide them in that mode if it bites.
+- recast-length-watch - Recasts of long learner answers are still 14–16 words against the 12-word prompt rule (live probe 2026-10-24 after 6e25e3c). Watch in daily use; add a code cap only if it hurts listening. *(found 2026-10-24, self-talk-coach session)*
 
 
 ---
