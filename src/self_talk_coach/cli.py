@@ -320,9 +320,9 @@ def choose_start_scenario(deck, read, echo) -> str:
     """Numbered scenario list before the first partner turn; Enter alone = all mixed."""
     for i, name in enumerate(deck.options()):
         echo(f"  {i:2}  {name}")
-    echo("   m  Mein Tag (frei erzählen)")
+    echo("   m  Mein Tag (frei erzählen, ohne Korrekturen)")
     while True:
-        answer = read("Szenario-Nummer (Enter = alle gemischt): ").strip()
+        answer = read("Nummer oder m, dann Enter (nur Enter = alle gemischt): ").strip()
         if answer.lower() == "m":
             return MEIN_TAG
         if not answer:
