@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Do not hand-edit. -->
 
 Status: active
-Last touched: 2026-10-25
+Last touched: 2026-10-29
 
 ## What
 German speaking coach: live voice conversation partner (`stc talk`, role-play scenarios, help ladder) plus a local library of self-talk recordings and transcripts. Weekend-MVP blueprint abandoned 2026-10-07. Public repo Sumanthreddy-DE/self-talk-coach (made public 2026-10-07, MIT; README rewritten the same day). Projects-level repo — sessions launch from THIS folder.
@@ -25,13 +25,15 @@ German speaking coach: live voice conversation partner (`stc talk`, role-play sc
 
 ## Doing
 - Demo for the LinkedIn post: clip not cut yet (BACKLOG `demo-clip`)
+- Interview-Tag daily practice: designed 2026-10-29, bank location undecided (BACKLOG `interview-tag`)
 
 ## Pipeline
 - M3 first-language-analysis (plan written 5f7670a, not started — no `analyze.py`)
 - review-queue (BACKLOG S2)
+- interview-tag: daily German interview practice from career-ops applications (BACKLOG S2)
 
 ## Resume here
-User cuts the demo in Clipchamp from the conversation 13 recording (turns 0–4 + report; drop salary, Reutlingen, "Geld"), uploads the mp4 to a GitHub issue comment and sends the user-attachments link; then add it to the top of README and draft the LinkedIn post. Optional: Mein Tag run with English words (BACKLOG `mein-tag-live-check`).
+Time-critical first: user picks the Interview-Tag bank location ((a) `Myself/` bank file, recommended, or (b) per application folder), then says "Interview-Tag: 104 sachs" — Claude writes the morning sheet + `## Interview: sachs` section from `career-ops/applications/104-sachs-development/` before the ~2026-10-31 call. Then demo: user cuts the demo in Clipchamp from the conversation 13 recording (turns 0–4 + report; drop salary, Reutlingen, "Geld"), uploads the mp4 to a GitHub issue comment and sends the user-attachments link; then add it to the top of README and draft the LinkedIn post. Optional: Mein Tag run with English words (BACKLOG `mein-tag-live-check`).
 
 ## Landmines
 - `stc talk` needs a real Windows console (msvcrt keys) and the repo root as cwd (`data/` is relative).
