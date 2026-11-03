@@ -8,6 +8,7 @@ from pathlib import Path
 
 from self_talk_coach.domain import (
     CONVERSATION_PRODUCER,
+    CandidateStatus,
     ConversationStatus,
     DateConfidence,
     MediaStatus,
@@ -439,25 +440,37 @@ def update_turn_out_of_baseline(conn: sqlite3.Connection, turn_id: int, ratio: f
 def replace_conversation_candidates(
     conn: sqlite3.Connection, conversation_id: int, candidates: Iterable[NewCandidate]
 ) -> None:
-    """Swap this conversation's report candidates for a fresh set: `stc report` reruns never duplicate."""
-    conn.execute(
-        "DELETE FROM learning_candidates WHERE producer = ? "
-        "AND turn_id IN (SELECT id FROM turns WHERE conversation_id = ?)",
-        (CONVERSATION_PRODUCER, conversation_id),
-    )
-    conn.executemany(
-        """
-        INSERT INTO learning_candidates
-            (candidate_type, turn_id, original_text, suggested_text, explanation, producer)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        [
-            (c.candidate_type.value, c.turn_id, c.original_text, c.suggested_text, c.explanation,
-             CONVERSATION_PRODUCER)
-            for c in candidates
-        ],
-    )
-    conn.commit()
+    """Refresh pending report candidates, preserving decisions; reruns never duplicate."""
+    conn.execute("SAVEPOINT replace_candidates")
+    try:
+        conn.execute(
+            "DELETE FROM learning_candidates WHERE producer = ? AND status = 'pending' "
+            "AND turn_id IN (SELECT id FROM turns WHERE conversation_id = ?)",
+            (CONVERSATION_PRODUCER, conversation_id),
+        )
+        conn.executemany(
+            """
+            INSERT INTO learning_candidates
+                (candidate_type, turn_id, original_text, suggested_text, explanation, producer)
+            SELECT ?, ?, ?, ?, ?, ?
+            WHERE NOT EXISTS (
+                SELECT 1 FROM learning_candidates
+                WHERE turn_id = ? AND candidate_type = ? AND original_text = ?
+                  AND suggested_text IS ?
+            )
+            """,
+            (
+                (c.candidate_type.value, c.turn_id, c.original_text, c.suggested_text, c.explanation,
+                 CONVERSATION_PRODUCER, c.turn_id, c.candidate_type.value, c.original_text,
+                 c.suggested_text)
+                for c in candidates
+            ),
+        )
+    except Exception:
+        conn.execute("ROLLBACK TO SAVEPOINT replace_candidates")
+        conn.execute("RELEASE SAVEPOINT replace_candidates")
+        raise
+    conn.execute("RELEASE SAVEPOINT replace_candidates")
 
 
 def list_conversation_candidates(conn: sqlite3.Connection, conversation_id: int) -> list[sqlite3.Row]:
@@ -477,3 +490,94 @@ def previous_conversations(
         "AND (scenario IS NULL OR scenario != ?) ORDER BY id DESC LIMIT ?",
         (before_id, ConversationStatus.COMPLETED.value, exclude_scenario or "", limit),
     ).fetchall()
+
+
+class ReviewError(ValueError):
+    """A missing candidate or an invalid review decision."""
+
+
+def get_candidate(conn: sqlite3.Connection, candidate_id: int) -> sqlite3.Row:
+    row = conn.execute("SELECT * FROM learning_candidates WHERE id = ?", (candidate_id,)).fetchone()
+    if row is None:
+        raise ReviewError(f"candidate {candidate_id} not found")
+    return row
+
+
+def list_candidates(
+    conn: sqlite3.Connection, status: CandidateStatus | str | None = None
+) -> list[sqlite3.Row]:
+    if status is None:
+        clause, params = "WHERE status IN ('pending', 'deferred')", ()
+    elif status == "all":
+        clause, params = "", ()
+    else:
+        clause, params = "WHERE status = ?", (CandidateStatus(status).value,)
+    return conn.execute(
+        f"SELECT * FROM learning_candidates {clause} "
+        "ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'deferred' THEN 1 ELSE 2 END, "
+        "candidate_type, id", params,
+    ).fetchall()
+
+
+def get_candidate_source(conn: sqlite3.Connection, candidate_id: int) -> sqlite3.Row | None:
+    candidate = get_candidate(conn, candidate_id)
+    if candidate["turn_id"] is not None:
+        return conn.execute(
+            "SELECT conversation_id, turn_index, text FROM turns WHERE id = ?",
+            (candidate["turn_id"],),
+        ).fetchone()
+    if candidate["transcript_segment_id"] is not None:
+        return conn.execute(
+            "SELECT text, start_seconds, end_seconds FROM transcript_segments WHERE id = ?",
+            (candidate["transcript_segment_id"],),
+        ).fetchone()
+    return None
+
+
+def list_review_events(conn: sqlite3.Connection, candidate_id: int) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM review_events WHERE learning_candidate_id = ? ORDER BY created_at, id",
+        (candidate_id,),
+    ).fetchall()
+
+
+def review_candidate(
+    conn: sqlite3.Connection, candidate_id: int, status: CandidateStatus, *, note: str | None = None
+) -> bool:
+    """Atomically record a decision; return False for a write-free repeated action."""
+    actions = {CandidateStatus.APPROVED: "approve", CandidateStatus.REJECTED: "reject",
+               CandidateStatus.DEFERRED: "defer"}
+    if status not in actions:
+        raise ReviewError(f"invalid review status: {status}")
+    conn.execute("SAVEPOINT review_candidate")
+    try:
+        candidate = get_candidate(conn, candidate_id)
+        current = candidate["status"]
+        if current == status:
+            conn.execute("RELEASE SAVEPOINT review_candidate")
+            return False
+        if current not in (CandidateStatus.PENDING, CandidateStatus.DEFERRED):
+            raise ReviewError(f"candidate {candidate_id} is {current}; review decisions are final")
+        conn.execute(
+            "UPDATE learning_candidates SET status = ?, updated_at = datetime('now') WHERE id = ?",
+            (status, candidate_id),
+        )
+        practice_id = None
+        if status == CandidateStatus.APPROVED:
+            cursor = conn.execute(
+                "INSERT INTO practice_items (learning_candidate_id, practice_type, front, back, notes) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (candidate_id, candidate["candidate_type"], candidate["original_text"],
+                 candidate["suggested_text"] or candidate["original_text"], candidate["explanation"]),
+            )
+            practice_id = cursor.lastrowid
+        conn.execute(
+            "INSERT INTO review_events (learning_candidate_id, practice_item_id, action, note) "
+            "VALUES (?, ?, ?, ?)", (candidate_id, practice_id, actions[status], note),
+        )
+    except Exception:
+        conn.execute("ROLLBACK TO SAVEPOINT review_candidate")
+        conn.execute("RELEASE SAVEPOINT review_candidate")
+        raise
+    conn.execute("RELEASE SAVEPOINT review_candidate")
+    return True
