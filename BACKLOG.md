@@ -47,12 +47,13 @@ _(none)_
 
 ## Doing
 
-- interview-questionnaire-format — `vps-run: feat/interview-questionnaire` (brief `docs/exec-plans/active/2026-11-03-interview-questionnaire-format.md`, opencode GPT-6.1 Sol, synthetic sample only; laptop review runs it over the real file, expect 56 headings → 55 seeds). `Myself/Interview-Prep/interview-questionnaire-de.md` has one `##` heading per question (with model answers), so `parse_bank` reads it as 11 junk seeds. Needs its own parser before the session report can show "what you could have said". *(found 2026-10-08, self-talk-coach session)*
+_(items currently being worked — move from Open when started, back to Open if paused.)_
 
 ---
 
 ## Done this session (2026-06-01, 2026-10-07, 2026-10-08, 2026-10-10, 2026-10-24)
 
+- interview-questionnaire-format — done 2026-11-03 (merge `ecb55b2`; `468b60b`, handoff `5ae9e11`): `parse_questionnaire` + per-file detection in `load_banks`, `Seed.model_answer`. Real file on the laptop: 61 question headings → 60 seeds (Stärken A/B merged), 7 sections all `Interview: …`, every seed has a model answer, no `>` notes, no `★` or ` — ` left in question text; scenario bank unchanged (54 seeds). The brief's "56 → 55" was my miscount (regex skipped `5a.`/`5b.` ids). `model_answer` not used yet → next: show it in the session report. Built on the VPS by opencode with GPT-6.1 Sol, synthetic sample only. 197 passed.
 - review-missing-db-silent — done 2026-11-03 (merge `dfb086c`; `1eada46`, handoff `2414dfa`): the five `stc review` commands exit 1 with a `no database at <path>` hint and create nothing when the DB is missing; `connect()` unchanged. 191 passed, ruff only the 2 known I001. Built on the VPS by opencode with GPT-6.1 Sol, reviewed on the laptop (live probe: typo path exit 1 and not created; real data root lists as before).
 - review-queue — done 2026-11-03 (merge `2596830`; `28bef5e`, `6b31083`, `cca652d`, handoff `891c10f`): `stc review list|show|approve|reject|defer`, atomic decisions via savepoints, approved/rejected final, repeats write nothing. Also fixed a data-loss bug: `stc report` reruns deleted approved practice items (cascade); now only pending rows are replaced. 186 passed on VPS and laptop; rerun tests confirmed failing on the old function. Built on the VPS by opencode `dlab/gpt-6-1-sol`, reviewed on the laptop.
 - report-llm-timeout - Report LLM timeout 90 -> 180 s; conversation 12 (13 turns) took ~32 s (5f32ec1)

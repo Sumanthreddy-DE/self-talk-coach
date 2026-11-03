@@ -1,6 +1,6 @@
 # interview-questionnaire-format — task brief
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-03
 
 BACKLOG S3 `interview-questionnaire-format`. Written for an agent working on the VPS
