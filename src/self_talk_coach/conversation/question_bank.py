@@ -1,4 +1,4 @@
-"""Question banks: Markdown files of numbered questions grouped under '## ' sections."""
+"""Question banks: numbered lists or interview questionnaires with model answers."""
 
 from __future__ import annotations
 
@@ -6,10 +6,13 @@ import random
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from itertools import groupby
 from pathlib import Path
 from typing import Protocol
 
 _ITEM = re.compile(r"^\s*\d+\.\s+(.+?)\s*$")
+_GROUP = re.compile(r"^# \d+[a-z]?\. (.*)", re.MULTILINE)
+_QUESTION = re.compile(r"^## \d+[a-z]?\.\d+[a-z]? (.*)", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -17,6 +20,7 @@ class Seed:
     section: str
     text: str
     phrase: bool = False  # a sentence the learner should say, not a question for the learner
+    model_answer: str | None = None
 
 
 def parse_bank(markdown: str) -> list[Seed]:
@@ -34,12 +38,67 @@ def parse_bank(markdown: str) -> list[Seed]:
     return seeds
 
 
+def _questionnaire_section(section: str, lines: list[str]) -> list[Seed]:
+    questions: list[tuple[str, str, str]] = []
+    index = 0
+    while index < len(lines):
+        match = _QUESTION.match(lines[index])
+        index += 1
+        if not match:
+            continue
+        text, _, variant = match.group(1).lstrip("★ ").partition(" — ")
+        answer: list[str] = []
+        while index < len(lines) and not lines[index].startswith(("---", "## ", "# ")):
+            if not lines[index].startswith(">"):
+                answer.append(lines[index])
+            index += 1
+        while answer and not answer[0].strip():
+            answer.pop(0)
+        while answer and not answer[-1].strip():
+            answer.pop()
+        questions.append((text.strip(), variant, "\n".join(answer)))
+
+    seeds: list[Seed] = []
+    for text, versions in groupby(questions, key=lambda question: question[0]):
+        entries = list(versions)
+        if len(entries) == 1:
+            model_answer = entries[0][2]
+        else:
+            model_answer = "\n\n".join(
+                f"{variant}: {answer}" if variant else answer
+                for _, variant, answer in entries if answer
+            )
+        seeds.append(Seed(section, text, model_answer=model_answer or None))
+    return seeds
+
+
+def parse_questionnaire(markdown: str) -> list[Seed]:
+    """Read numbered question headings within numbered interview groups."""
+    seeds: list[Seed] = []
+    section: str | None = None
+    lines: list[str] = []
+    for line in markdown.splitlines():
+        if line.startswith("# "):
+            if section is not None:
+                seeds.extend(_questionnaire_section(section, lines))
+            match = _GROUP.match(line)
+            section = f"Interview: {match.group(1).strip()}" if match else None
+            lines = []
+        elif section is not None:
+            lines.append(line)
+    if section is not None:
+        seeds.extend(_questionnaire_section(section, lines))
+    return seeds
+
+
 def load_banks(paths: Sequence[Path]) -> list[Seed]:
     seeds: list[Seed] = []
     for path in paths:
         if not path.is_file():
             raise FileNotFoundError(f"Question bank not found: {path}")
-        seeds.extend(parse_bank(path.read_text(encoding="utf-8")))
+        markdown = path.read_text(encoding="utf-8")
+        parser = parse_questionnaire if _GROUP.search(markdown) and _QUESTION.search(markdown) else parse_bank
+        seeds.extend(parser(markdown))
     return seeds
 
 
