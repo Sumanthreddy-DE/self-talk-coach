@@ -25,7 +25,6 @@ _(none)_
 ## Open — S2 (UX gap, polish, deferred decisions)
 
 - first-language-analysis - Generate pending correction and upgrade candidates from stored transcript segments. Plan: `docs/superpowers/plans/2026-06-02-first-language-analysis.md` (paused 2026-09-28, not started).
-- review-queue - Add commands to list, show, approve, reject, and defer learning candidates.
 - question-banks-missing - Conversation partner needs question banks the Myself banks lack: McDonald's shift/colleague scenario, telc B1 Sprechen cards (Kontakt aufnehmen, Präsentation, gemeinsam planen), larger free-talk topic bank. Draft → user approval before committing. Existing banks read in place via `.env` path (PII, never copied into repo): `Myself/German-Learning/question-bank.md`, `Myself/Interview-Prep/interview-questionnaire-de.md`. First task after conversation-partner setup. 2026-10-07/08: McDonald's (customers, manager, colleagues, workload, friendly customers) and cold-call role-plays done in `Myself/German-Learning/scenario-bank.md`; still missing: telc B1 Sprechen cards, free-talk bank.
 - llm-provider-reliability - dlabkeys gateway grants credits daily; on 2026-10-05 the day's credits ran out (429 "hobbyist plan has expired … Free tier") after spikes + tests. gpt-6-luna/sol listed but unavailable. Free-tier `space-bunny` returned empty content in 2/3 turns. Decide: renewed dlabkeys vs official DeepSeek API (config-only switch). Consider a startup preflight call so `stc talk` fails fast instead of falling back every turn. 2026-10-06: credits back, DeepSeek V4 Pro + Sonnet 5 answer in ~2.5 s; `glm-5-3` returned empty content on a 20-token probe.
 - web-ui - Browser frontend for the conversation partner after terminal v1 (also the cheapest path to phone use over LAN). Candidate: Chainlit (Apache-2.0, 12.5k★, community-maintained since 2025-05). Its cookbook `openai-whisper` example (mic → whisper → LLM → ElevenLabs) matches our loop, but the cookbook has no license (ideas only) and was last pushed 2025-08. Needs: hidden partner text, help-ladder timers, freeze-time capture in the browser.
@@ -50,6 +49,8 @@ _(none)_
 ## Doing
 
 _(items currently being worked — move from Open when started, back to Open if paused.)_
+
+- review-queue — `vps-run: feat/review-queue` (brief `docs/exec-plans/active/2026-11-03-review-queue.md`, opencode GPT-6.1 Sol, 4 commits done on the VPS, laptop review pending). Add commands to list, show, approve, reject, and defer learning candidates.
 
 ---
 
