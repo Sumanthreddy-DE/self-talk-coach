@@ -37,6 +37,7 @@ _(none)_
 
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
+- model-answer-near-miss - Matching is exact on the question text, so wording drift loses the answer: past `Interview: Core` sessions asked "Erzählen Sie mir bitte etwas über sich." and "Sind Sie bereit umzuziehen?" (scenario bank) while the questionnaire says "Erzählen Sie etwas über sich." / "Sind Sie bereit, umzuziehen?" — conversation 13 matched 7 of 10. Simplest fix: practise from the questionnaire itself (add it to `STC_QUESTION_BANKS`, pick an `Interview: …` section), then seeds match by construction; otherwise align the scenario-bank wording or normalise punctuation. *(found 2026-11-03, claude-lab review)*
 - anki-export - Approved practice items → Anki `.apkg` (genanki), planned in the core design (`stc export anki`). Design to reuse: weekend-MVP blueprint S5 — structured enrich prompt (DE definition, EN translation, gender/separable-prefix, example from the learner's own sentence), prompt caching with the 1024-token prefix minimum (assert `cache_creation_input_tokens > 0` then `cache_read_input_tokens > 0`), `--max-cards` cost cap.
 - stale-state-doing - `STATE.md` Doing/Resume still say `feat/conversation-loop` awaits merge, but `main` already contains it (57e8348). Next session here: refresh Doing + Resume here from git log. *(found 2026-10-08, claude-lab session)*
 - mein-tag-switch-keys - In Mein Tag, w/f reset the partner's memory and reopen; disable or hide them in that mode if it bites.
@@ -47,12 +48,13 @@ _(none)_
 
 ## Doing
 
-- report-model-answers — `vps-run: feat/report-model-answers` (brief `docs/exec-plans/active/2026-11-03-report-model-answers.md`, opencode GPT-6.1 Sol). Interview reports get a `## Musterantworten` section: per question what the learner said next to the questionnaire's model answer (`Seed.model_answer`, merged `ecb55b2`). No LLM call. *(opened 2026-11-03, claude-lab session)*
+_(items currently being worked — move from Open when started, back to Open if paused.)_
 
 ---
 
 ## Done this session (2026-06-01, 2026-10-07, 2026-10-08, 2026-10-10, 2026-10-24)
 
+- report-model-answers — done 2026-11-03 (merge `4bd622e`; `7d0fef7`, handoff `9df8c3b`): interview reports end with `## Musterantworten` (question, **Du:** answers joined ` / `, model answer as quote); bank load failure → visible `[Hinweis]` line, report still built; reports without matches unchanged. Laptop check (read-only, real DB + real questionnaire): conversations 12/13/14 match 4/7/2 questions and render correctly. 202 passed. Built on the VPS by opencode with GPT-6.1 Sol.
 - interview-questionnaire-format — done 2026-11-03 (merge `ecb55b2`; `468b60b`, handoff `5ae9e11`): `parse_questionnaire` + per-file detection in `load_banks`, `Seed.model_answer`. Real file on the laptop: 61 question headings → 60 seeds (Stärken A/B merged), 7 sections all `Interview: …`, every seed has a model answer, no `>` notes, no `★` or ` — ` left in question text; scenario bank unchanged (54 seeds). The brief's "56 → 55" was my miscount (regex skipped `5a.`/`5b.` ids). `model_answer` not used yet → next: show it in the session report. Built on the VPS by opencode with GPT-6.1 Sol, synthetic sample only. 197 passed.
 - review-missing-db-silent — done 2026-11-03 (merge `dfb086c`; `1eada46`, handoff `2414dfa`): the five `stc review` commands exit 1 with a `no database at <path>` hint and create nothing when the DB is missing; `connect()` unchanged. 191 passed, ruff only the 2 known I001. Built on the VPS by opencode with GPT-6.1 Sol, reviewed on the laptop (live probe: typo path exit 1 and not created; real data root lists as before).
 - review-queue — done 2026-11-03 (merge `2596830`; `28bef5e`, `6b31083`, `cca652d`, handoff `891c10f`): `stc review list|show|approve|reject|defer`, atomic decisions via savepoints, approved/rejected final, repeats write nothing. Also fixed a data-loss bug: `stc report` reruns deleted approved practice items (cascade); now only pending rows are replaced. 186 passed on VPS and laptop; rerun tests confirmed failing on the old function. Built on the VPS by opencode `dlab/gpt-6-1-sol`, reviewed on the laptop.

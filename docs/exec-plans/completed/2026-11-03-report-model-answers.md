@@ -1,6 +1,6 @@
 # report-model-answers — task brief
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-03
 
 BACKLOG S2 `report-model-answers`. Written for an agent working on the VPS in opencode;
