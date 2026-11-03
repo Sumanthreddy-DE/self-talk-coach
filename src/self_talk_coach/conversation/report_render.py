@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from self_talk_coach.conversation.report_llm import ComprehensionFinding, ReportFindings, top_errors
 from self_talk_coach.conversation.report_metrics import FreezeTrend, ListeningSummary
@@ -25,6 +25,7 @@ class ReportData:
     checks: list[tuple[str, str, ComprehensionFinding | None]]  # partner text, learner retell, score
     new_words: list[NewWord] | None  # None = miner skipped
     vocab_error: str | None
+    model_answers: list[tuple[str, str, str]] = field(default_factory=list)
 
 
 def _freeze_line(f: FreezeTrend) -> str:
@@ -86,4 +87,11 @@ def render_report(d: ReportData) -> str:
     else:
         out += _or_dash([f"- **{w.lemma}**{f' ({w.meaning})' if w.meaning else ''} — {w.example}"
                          for w in d.new_words])
+    if d.model_answers:
+        out += ["", "## Musterantworten"]
+        for index, (question, learner, model) in enumerate(d.model_answers):
+            if index:
+                out.append("")
+            out += [f"### {question}", f"**Du:** {learner}", ""]
+            out += [f"> {line}" if line else ">" for line in model.splitlines()]
     return "\n".join(out) + "\n"

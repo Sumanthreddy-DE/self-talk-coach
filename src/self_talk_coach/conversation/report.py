@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import sqlite3
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from self_talk_coach.conversation.mein_tag import MEIN_TAG
@@ -51,6 +51,7 @@ class ReportDeps:
     lemmatizer: Callable[[], Lemmatize]  # factory: spaCy loads only when a report runs
     baseline: frozenset[str]
     status: Callable[[str], None] = print
+    model_answers: Mapping[str, str] = field(default_factory=dict)
 
 
 def build_report(deps: ReportDeps, conversation_id: int) -> str:
@@ -84,6 +85,7 @@ def build_report(deps: ReportDeps, conversation_id: int) -> str:
         checks=_checks(turns, findings),
         new_words=new_words,
         vocab_error=vocab_error,
+        model_answers=[] if mein_tag else _model_answers(turns, deps.model_answers),
     )
     if findings is not None:
         replace_conversation_candidates(deps.conn, conversation_id, _candidates(findings, turns))
@@ -98,6 +100,17 @@ def build_report(deps: ReportDeps, conversation_id: int) -> str:
             deps.status(f"[Wörter] {len(new_words)} neue Wörter in {deps.paths.word_list}")
     set_report_status(deps.conn, conversation_id, ReportStatus.FAILED if analysis_error else ReportStatus.DONE)
     return text
+
+
+def _model_answers(turns: Sequence[Turn], prepared: Mapping[str, str]) -> list[tuple[str, str, str]]:
+    """Group answers by exact bank seed, keeping even unanswered questions in asked order."""
+    answers: dict[str, list[str]] = {
+        t["seed"]: [] for t in turns if t["speaker"] == "partner" and t["seed"] in prepared
+    }
+    for partner, learner in answer_pairs(turns):
+        if partner["seed"] in answers:
+            answers[partner["seed"]].append(learner["text"])
+    return [(seed, " / ".join(texts) if texts else "–", prepared[seed]) for seed, texts in answers.items()]
 
 
 def _findings(
