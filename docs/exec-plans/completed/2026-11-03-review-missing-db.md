@@ -1,6 +1,6 @@
 # review-missing-db-silent — task brief
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-03
 
 BACKLOG S3 `review-missing-db-silent`. Written for an agent working on the VPS in

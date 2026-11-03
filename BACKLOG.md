@@ -48,12 +48,13 @@ _(none)_
 
 ## Doing
 
-- review-missing-db-silent — `vps-run: fix/review-missing-db` (brief `docs/exec-plans/active/2026-11-03-review-missing-db.md`, opencode GPT-6.1 Sol, VPS run pending). `stc review list --data-root <wrong path>` creates an empty DB there (`connect()` makes parent dirs) and prints `No candidates.`, so a typo in the path looks like an empty queue. Make the review commands fail when `paths.db_path` does not exist yet. *(found 2026-11-03, claude-lab review of feat/review-queue)*
+_(items currently being worked — move from Open when started, back to Open if paused.)_
 
 ---
 
 ## Done this session (2026-06-01, 2026-10-07, 2026-10-08, 2026-10-10, 2026-10-24)
 
+- review-missing-db-silent — done 2026-11-03 (merge `dfb086c`; `1eada46`, handoff `2414dfa`): the five `stc review` commands exit 1 with a `no database at <path>` hint and create nothing when the DB is missing; `connect()` unchanged. 191 passed, ruff only the 2 known I001. Built on the VPS by opencode with GPT-6.1 Sol, reviewed on the laptop (live probe: typo path exit 1 and not created; real data root lists as before).
 - review-queue — done 2026-11-03 (merge `2596830`; `28bef5e`, `6b31083`, `cca652d`, handoff `891c10f`): `stc review list|show|approve|reject|defer`, atomic decisions via savepoints, approved/rejected final, repeats write nothing. Also fixed a data-loss bug: `stc report` reruns deleted approved practice items (cascade); now only pending rows are replaced. 186 passed on VPS and laptop; rerun tests confirmed failing on the old function. Built on the VPS by opencode `dlab/gpt-6-1-sol`, reviewed on the laptop.
 - report-llm-timeout - Report LLM timeout 90 -> 180 s; conversation 12 (13 turns) took ~32 s (5f32ec1)
 - interviewer-mode - Sections named "Interview…": partner is a Personalerin using "Sie" (replies, recasts, starters, check, nudges, pardon), questions in bank order, answers up to 120 s with a visible cut-off line (5f32ec1, 750b8f7)
