@@ -27,6 +27,170 @@ BANK = """# German Question Bank
 - not numbered, ignored
 """
 
+SAMPLE = """# Interview-Fragenbank — Name
+
+**Stand:** 11 / 26 · **Kurzfassung** · **Hinweis:**
+
+★ = wichtigste Fragen zuerst (ca. zehn)
+
+---
+
+## Wie nutze ich dieses Heft?
+
+- Erst laut antworten, dann lesen.
+- Platzhalter in eckigen Klammern ersetzen.
+
+---
+
+# 1. Kern (Core)
+
+## 1.1 ★ Erzählen Sie etwas über sich.
+
+Ich bin Ingenieur und arbeite gern mit Simulation.
+
+---
+
+## 1.2 Warum interessieren Sie sich für diese Stelle?
+
+> Vorbereiten: `[Firmenname]`, `[Produkt]`
+
+Die Stelle passt, weil `[Firmenname]` Berechnung und Software verbindet.
+
+Zweiter Absatz der Antwort.
+
+> **Merksatz (Kurzfassung):** Erst die Firma, dann ich.
+
+---
+
+## 1.3a ★ Was sind Ihre Stärken? — Version A (modern)
+
+Schnelles Prototyping mit Python.
+
+---
+
+## 1.3b ★ Was sind Ihre Stärken? — Version B (klassisch)
+
+Gründlichkeit und saubere Dokumentation.
+
+---
+
+# 5a. Berater-Flow (Karriereberater-Gespräch)
+
+## 5a.1 Welche Branchen interessieren Sie?
+
+Maschinenbau und Energie.
+
+---
+
+## 5.11 Haben Sie Fragen an uns?
+
+Ja, zum Beispiel:
+
+1. Wie sieht ein typischer Tag aus?
+2. Wie ist das Team aufgebaut?
+
+---
+
+# 5b. AGG-sensible Fragen (Deflektion)
+
+> **Hinweis:** Diese Fragen sind meist unzulässig.
+
+## 5b.1 Planen Sie eine Familie?
+
+Darauf möchte ich höflich nicht eingehen.
+
+---
+
+# Ende
+
+**Vor dem Gespräch:**
+1. Laut üben.
+2. Ruhig bleiben.
+"""
+
+
+def _expected_questionnaire() -> list[Seed]:
+    return [
+        Seed("Interview: Kern (Core)", "Erzählen Sie etwas über sich.",
+             model_answer="Ich bin Ingenieur und arbeite gern mit Simulation."),
+        Seed("Interview: Kern (Core)", "Warum interessieren Sie sich für diese Stelle?",
+             model_answer="Die Stelle passt, weil `[Firmenname]` Berechnung und Software verbindet."
+             "\n\nZweiter Absatz der Antwort."),
+        Seed("Interview: Kern (Core)", "Was sind Ihre Stärken?",
+             model_answer="Version A (modern): Schnelles Prototyping mit Python."
+             "\n\nVersion B (klassisch): Gründlichkeit und saubere Dokumentation."),
+        Seed("Interview: Berater-Flow (Karriereberater-Gespräch)", "Welche Branchen interessieren Sie?",
+             model_answer="Maschinenbau und Energie."),
+        Seed("Interview: Berater-Flow (Karriereberater-Gespräch)", "Haben Sie Fragen an uns?",
+             model_answer="Ja, zum Beispiel:\n\n1. Wie sieht ein typischer Tag aus?\n2. Wie ist das Team aufgebaut?"),
+        Seed("Interview: AGG-sensible Fragen (Deflektion)", "Planen Sie eine Familie?",
+             model_answer="Darauf möchte ich höflich nicht eingehen."),
+    ]
+
+
+def test_parse_questionnaire_reads_questions_answers_and_variants() -> None:
+    from self_talk_coach.conversation.question_bank import parse_questionnaire
+
+    assert parse_questionnaire(SAMPLE) == _expected_questionnaire()
+
+
+def test_load_banks_detects_questionnaire_per_file(tmp_path: Path) -> None:
+    questionnaire = tmp_path / "questionnaire.md"
+    questionnaire.write_text(SAMPLE, encoding="utf-8")
+    bank = tmp_path / "bank.md"
+    bank.write_text(BANK, encoding="utf-8")
+    assert load_banks([questionnaire]) == _expected_questionnaire()
+    assert load_banks([bank]) == parse_bank(BANK)
+    assert all(seed.model_answer is None for seed in load_banks([bank]))
+    assert load_banks([bank, questionnaire]) == parse_bank(BANK) + _expected_questionnaire()
+
+
+def test_questionnaire_sections_are_interviews() -> None:
+    from self_talk_coach.conversation.question_bank import is_interview, parse_questionnaire
+
+    sections = [seed.section for seed in parse_questionnaire(SAMPLE)]
+    assert len(sections) == 6
+    assert all(is_interview(section) for section in sections)
+
+
+@pytest.mark.parametrize("markdown", [
+    "# 1. Group\n## Ordinary section\n1. Question?",
+    "# Ordinary title\n## 1.1 Question?\n1. Answer list item",
+])
+def test_questionnaire_detection_requires_both_heading_types(tmp_path: Path, markdown: str) -> None:
+    bank = tmp_path / "bank.md"
+    bank.write_text(markdown, encoding="utf-8")
+    assert load_banks([bank]) == parse_bank(markdown)
+
+
+def test_questionnaire_boundaries_empty_answers_and_nonconsecutive_duplicates() -> None:
+    from self_talk_coach.conversation.question_bank import parse_questionnaire
+
+    markdown = """## 0.1 Ignored before group?
+# 1. Group
+## Usage
+1. Ignore this list
+## 1.1 Empty?
+> Note only
+## 1.2 Kept?
+  Indented answer.
+
+Second paragraph.
+---
+Not part of the answer.
+## 1.3 Empty?
+# End
+## 1.4 Ignored after end?
+# 2. Group
+## 2.1 Empty?
+"""
+    assert parse_questionnaire(markdown) == [
+        Seed("Interview: Group", "Empty?"),
+        Seed("Interview: Group", "Kept?", model_answer="  Indented answer.\n\nSecond paragraph."),
+        Seed("Interview: Group", "Empty?"),
+        Seed("Interview: Group", "Empty?"),
+    ]
+
 
 def test_parse_bank_reads_numbered_items_per_section() -> None:
     seeds = parse_bank(BANK)
