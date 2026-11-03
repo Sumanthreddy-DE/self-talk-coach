@@ -389,9 +389,15 @@ def talk_command(
 
 def report_deps(conn, paths: AppPaths, cfg, status=typer.echo):
     from self_talk_coach.conversation.partner import OpenAIChatClient
+    from self_talk_coach.conversation.question_bank import load_banks
     from self_talk_coach.conversation.report import ReportDeps
     from self_talk_coach.mine import load_baseline, spacy_lemmatizer
 
+    try:
+        model_answers = {s.text: s.model_answer for s in load_banks(cfg.question_banks) if s.model_answer}
+    except Exception as exc:  # noqa: BLE001 — bank failure must not prevent the report; show why
+        model_answers = {}
+        status(f"[Hinweis] Musterantworten übersprungen: {exc}")
     return ReportDeps(
         conn=conn,
         paths=paths,
@@ -401,6 +407,7 @@ def report_deps(conn, paths: AppPaths, cfg, status=typer.echo):
         lemmatizer=spacy_lemmatizer,
         baseline=load_baseline(),
         status=status,
+        model_answers=model_answers,
     )
 
 

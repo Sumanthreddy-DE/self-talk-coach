@@ -1,7 +1,9 @@
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
+from self_talk_coach.cli import report_deps
 from self_talk_coach.conversation.report import ReportDeps, build_report
 from self_talk_coach.db import (
     connect,
@@ -137,3 +139,83 @@ def test_new_words_get_meanings_sentence_examples_and_the_running_list(tmp_path:
     assert "**acht** (eight) — Ich war um acht im Laden." in words  # one sentence, not the whole turn
     listed = (tmp_path / "neue-woerter.md").read_text(encoding="utf-8")
     assert f"<!-- stc:{cid} -->" in listed and "- [ ] **acht** — eight · „Ich war um acht im Laden.“" in listed
+
+
+def _interview_setup(tmp_path: Path, scenario: str = "Interview: Test"):
+    conn = connect(tmp_path / "db.sqlite")
+    init_db(conn)
+    cid = insert_conversation(conn, started_at="2026-11-03T10:00:00+00:00", scenario=scenario,
+                              stt_model="s", llm_model="l", tts_voice="v")
+    turns = [
+        (TurnSpeaker.PARTNER, "Erzählen Sie von sich.", "Frage A?"),
+        (TurnSpeaker.LEARNER, "Ich lerne Deutsch.", None),
+        (TurnSpeaker.PARTNER, "Und warum?", "Frage A?"),
+        (TurnSpeaker.LEARNER, "Ich möchte üben.", None),
+        (TurnSpeaker.PARTNER, "Nächste Frage.", "Frage B?"),
+        (TurnSpeaker.LEARNER, "Meine dritte Antwort.", None),
+        (TurnSpeaker.PARTNER, "Letzte Frage.", "Frage C?"),
+    ]
+    for index, (speaker, text, seed) in enumerate(turns):
+        insert_turn(conn, conversation_id=cid, turn_index=index, speaker=speaker, text=text, seed=seed)
+    finish_conversation(conn, cid, ended_at="2026-11-03T10:05:00+00:00", status=ConversationStatus.COMPLETED)
+    return conn, cid
+
+
+def test_model_answers_group_followups_quote_paragraphs_and_keep_unanswered_questions(tmp_path: Path) -> None:
+    conn, cid = _interview_setup(tmp_path)
+    deps, _ = _deps(conn, tmp_path, FakeClient(json.dumps({})))
+    # Deliberately reverse mapping order: stored partner turns determine report order.
+    deps.model_answers = {"Frage C?": "Antwort C.", "Frage A?": "Absatz eins.\n\nAbsatz zwei."}
+    text = build_report(deps, cid)
+    assert text.endswith(
+        "\n## Musterantworten\n"
+        "### Frage A?\n**Du:** Ich lerne Deutsch. / Ich möchte üben.\n\n"
+        "> Absatz eins.\n>\n> Absatz zwei.\n\n"
+        "### Frage C?\n**Du:** –\n\n> Antwort C.\n"
+    )
+    assert "Frage B?" not in text.split("## Musterantworten")[1]
+    assert text.index("## Neue Wörter") < text.index("## Musterantworten")
+    assert (tmp_path / "conversations" / f"{cid:04d}" / "report.md").read_text(encoding="utf-8") == text
+
+
+def test_empty_model_answers_preserve_report_text(tmp_path: Path) -> None:
+    conn, cid = _interview_setup(tmp_path)
+    deps, _ = _deps(conn, tmp_path, FakeClient(json.dumps({})))
+    without_field = build_report(deps, cid)
+    explicit = ReportDeps(conn=deps.conn, paths=deps.paths, client=deps.client, model=deps.model,
+                          lemmatizer=deps.lemmatizer, baseline=deps.baseline, status=deps.status,
+                          model_answers={})
+    text = build_report(explicit, cid)
+    assert "## Musterantworten" not in text
+    assert text == without_field
+
+
+def test_mein_tag_omits_model_answers_even_with_matching_seeds(tmp_path: Path) -> None:
+    conn, cid = _interview_setup(tmp_path, scenario="Mein Tag")
+    deps, _ = _deps(conn, tmp_path, FakeClient(json.dumps({})))
+    deps.model_answers = {"Frage A?": "Vorbereitete Antwort."}
+    assert "## Musterantworten" not in build_report(deps, cid)
+
+
+def _report_config(question_banks: list[Path]) -> SimpleNamespace:
+    return SimpleNamespace(question_banks=question_banks, gateway_base_url="https://example.invalid",
+                           gateway_api_key="synthetic-test-key", report_model="test-model")
+
+
+def test_report_deps_missing_bank_skips_model_answers_visibly(tmp_path: Path) -> None:
+    status: list[str] = []
+    missing = tmp_path / "missing.md"
+    deps = report_deps(None, AppPaths.from_data_root(tmp_path), _report_config([missing]), status.append)
+    assert deps.model_answers == {}
+    assert len(status) == 1
+    assert status[0].startswith("[Hinweis] Musterantworten übersprungen: ")
+    assert str(missing) in status[0]
+
+
+def test_report_deps_loads_only_nonempty_model_answers(tmp_path: Path) -> None:
+    bank = tmp_path / "synthetic-bank.md"
+    bank.write_text("# 1. Test\n## 1.1 Frage A?\nAntwort A.\n\n## 1.2 Frage B?\n", encoding="utf-8")
+    status: list[str] = []
+    deps = report_deps(None, AppPaths.from_data_root(tmp_path), _report_config([bank]), status.append)
+    assert deps.model_answers == {"Frage A?": "Antwort A."}
+    assert status == []
