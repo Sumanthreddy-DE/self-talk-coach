@@ -37,7 +37,6 @@ _(none)_
 
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
-- review-missing-db-silent - `stc review list --data-root <wrong path>` creates an empty DB there (`connect()` makes parent dirs) and prints `No candidates.`, so a typo in the path looks like an empty queue. Make the review commands fail when `paths.db_path` does not exist yet. *(found 2026-11-03, claude-lab review of feat/review-queue)*
 - interview-questionnaire-format - `Myself/Interview-Prep/interview-questionnaire-de.md` has one `##` heading per question (with model answers), so `parse_bank` reads it as 11 junk seeds. Needs its own parser before the session report can show "what you could have said". *(found 2026-10-08, self-talk-coach session)*
 - anki-export - Approved practice items → Anki `.apkg` (genanki), planned in the core design (`stc export anki`). Design to reuse: weekend-MVP blueprint S5 — structured enrich prompt (DE definition, EN translation, gender/separable-prefix, example from the learner's own sentence), prompt caching with the 1024-token prefix minimum (assert `cache_creation_input_tokens > 0` then `cache_read_input_tokens > 0`), `--max-cards` cost cap.
 - stale-state-doing - `STATE.md` Doing/Resume still say `feat/conversation-loop` awaits merge, but `main` already contains it (57e8348). Next session here: refresh Doing + Resume here from git log. *(found 2026-10-08, claude-lab session)*
@@ -49,7 +48,7 @@ _(none)_
 
 ## Doing
 
-_(items currently being worked — move from Open when started, back to Open if paused.)_
+- review-missing-db-silent — `vps-run: fix/review-missing-db` (brief `docs/exec-plans/active/2026-11-03-review-missing-db.md`, opencode GPT-6.1 Sol, VPS run pending). `stc review list --data-root <wrong path>` creates an empty DB there (`connect()` makes parent dirs) and prints `No candidates.`, so a typo in the path looks like an empty queue. Make the review commands fail when `paths.db_path` does not exist yet. *(found 2026-11-03, claude-lab review of feat/review-queue)*
 
 ---
 
