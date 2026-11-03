@@ -47,7 +47,7 @@ _(none)_
 
 ## Doing
 
-_(items currently being worked — move from Open when started, back to Open if paused.)_
+- report-model-answers — `vps-run: feat/report-model-answers` (brief `docs/exec-plans/active/2026-11-03-report-model-answers.md`, opencode GPT-6.1 Sol). Interview reports get a `## Musterantworten` section: per question what the learner said next to the questionnaire's model answer (`Seed.model_answer`, merged `ecb55b2`). No LLM call. *(opened 2026-11-03, claude-lab session)*
 
 ---
 
