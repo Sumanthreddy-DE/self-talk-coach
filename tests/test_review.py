@@ -121,3 +121,41 @@ def test_list_filters_and_order_and_history(seeded):
     assert source["conversation_id"] == 1
     assert source["turn_index"] == 0
     assert source["text"] == "Ich habe einen Frage."
+
+
+def test_report_rerun_preserves_decisions_and_practice(seeded):
+    conn, cid, candidates = seeded
+    db.review_candidate(conn, 1, db.CandidateStatus.APPROVED)
+    db.review_candidate(conn, 2, db.CandidateStatus.DEFERRED)
+    kept = [dict(db.get_candidate(conn, i)) for i in (1, 2)]
+    practice = dict(conn.execute("SELECT * FROM practice_items").fetchone())
+    history = [dict(r) for r in db.list_review_events(conn, 1)]
+    # Distinguish replacement from an unchanged pending row despite SQLite id reuse.
+    conn.execute("UPDATE learning_candidates SET explanation = 'stale' WHERE id = 3")
+    conn.commit()
+    db.replace_conversation_candidates(conn, cid, candidates)
+    items = conn.execute("SELECT * FROM practice_items").fetchall()
+    assert len(items) == 1
+    assert dict(items[0]) == practice
+    assert [dict(db.get_candidate(conn, i)) for i in (1, 2)] == kept
+    assert [dict(r) for r in db.list_review_events(conn, 1)] == history
+    rows = db.list_conversation_candidates(conn, cid)
+    assert len(rows) == 3
+    assert rows[2]["status"] == "pending"
+    assert rows[2]["explanation"] == "Wort"
+    db.review_candidate(conn, 2, db.CandidateStatus.REJECTED)
+    rejected = dict(db.get_candidate(conn, 2))
+    db.replace_conversation_candidates(conn, cid, candidates + [candidates[0]])
+    assert dict(db.get_candidate(conn, 2)) == rejected
+    assert len(db.list_conversation_candidates(conn, cid)) == 3
+
+
+def test_report_rerun_failure_restores_previous_candidates(seeded):
+    conn, cid, candidates = seeded
+    before = [dict(r) for r in db.list_conversation_candidates(conn, cid)]
+    conn.execute("CREATE TRIGGER fail_candidate BEFORE INSERT ON learning_candidates "
+                 "BEGIN SELECT RAISE(ABORT, 'forced failure'); END")
+    conn.commit()
+    with pytest.raises(sqlite3.IntegrityError, match="forced failure"):
+        db.replace_conversation_candidates(conn, cid, candidates)
+    assert [dict(r) for r in db.list_conversation_candidates(conn, cid)] == before

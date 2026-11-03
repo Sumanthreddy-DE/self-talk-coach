@@ -440,25 +440,37 @@ def update_turn_out_of_baseline(conn: sqlite3.Connection, turn_id: int, ratio: f
 def replace_conversation_candidates(
     conn: sqlite3.Connection, conversation_id: int, candidates: Iterable[NewCandidate]
 ) -> None:
-    """Swap this conversation's report candidates for a fresh set: `stc report` reruns never duplicate."""
-    conn.execute(
-        "DELETE FROM learning_candidates WHERE producer = ? "
-        "AND turn_id IN (SELECT id FROM turns WHERE conversation_id = ?)",
-        (CONVERSATION_PRODUCER, conversation_id),
-    )
-    conn.executemany(
-        """
-        INSERT INTO learning_candidates
-            (candidate_type, turn_id, original_text, suggested_text, explanation, producer)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        [
-            (c.candidate_type.value, c.turn_id, c.original_text, c.suggested_text, c.explanation,
-             CONVERSATION_PRODUCER)
-            for c in candidates
-        ],
-    )
-    conn.commit()
+    """Refresh pending report candidates, preserving decisions; reruns never duplicate."""
+    conn.execute("SAVEPOINT replace_candidates")
+    try:
+        conn.execute(
+            "DELETE FROM learning_candidates WHERE producer = ? AND status = 'pending' "
+            "AND turn_id IN (SELECT id FROM turns WHERE conversation_id = ?)",
+            (CONVERSATION_PRODUCER, conversation_id),
+        )
+        conn.executemany(
+            """
+            INSERT INTO learning_candidates
+                (candidate_type, turn_id, original_text, suggested_text, explanation, producer)
+            SELECT ?, ?, ?, ?, ?, ?
+            WHERE NOT EXISTS (
+                SELECT 1 FROM learning_candidates
+                WHERE turn_id = ? AND candidate_type = ? AND original_text = ?
+                  AND suggested_text IS ?
+            )
+            """,
+            (
+                (c.candidate_type.value, c.turn_id, c.original_text, c.suggested_text, c.explanation,
+                 CONVERSATION_PRODUCER, c.turn_id, c.candidate_type.value, c.original_text,
+                 c.suggested_text)
+                for c in candidates
+            ),
+        )
+    except Exception:
+        conn.execute("ROLLBACK TO SAVEPOINT replace_candidates")
+        conn.execute("RELEASE SAVEPOINT replace_candidates")
+        raise
+    conn.execute("RELEASE SAVEPOINT replace_candidates")
 
 
 def list_conversation_candidates(conn: sqlite3.Connection, conversation_id: int) -> list[sqlite3.Row]:
