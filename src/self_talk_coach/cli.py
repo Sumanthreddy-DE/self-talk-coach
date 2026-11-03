@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -9,8 +10,17 @@ import typer
 
 from self_talk_coach.conversation.mein_tag import MEIN_TAG
 from self_talk_coach.conversation.report_metrics import median_freeze
-from self_talk_coach.db import connect, init_db
-from self_talk_coach.domain import ImportOutcome, TranscriptionOutcome
+from self_talk_coach.db import (
+    ReviewError,
+    connect,
+    get_candidate,
+    get_candidate_source,
+    init_db,
+    list_candidates,
+    list_review_events,
+    review_candidate,
+)
+from self_talk_coach.domain import CandidateStatus, ImportOutcome, TranscriptionOutcome
 from self_talk_coach.ingest import import_inbox
 from self_talk_coach.paths import AppPaths
 from self_talk_coach.transcribe import (
@@ -26,8 +36,105 @@ from self_talk_coach.transcript_export import (
 app = typer.Typer(help="self-talk-coach: German self-talk learning system")
 export_app = typer.Typer(help="Export stored learning artifacts.")
 app.add_typer(export_app, name="export")
+review_app = typer.Typer(help="Review learning suggestions before creating practice items.")
+app.add_typer(review_app, name="review")
 
 REPORT_MAX_TOKENS = 3000
+
+
+class ReviewFilter(StrEnum):
+    PENDING = "pending"
+    DEFERRED = "deferred"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    ALL = "all"
+
+
+ReviewDataRoot = Annotated[Path, typer.Option("--data-root", help="Application data root.")]
+ReviewNote = Annotated[str | None, typer.Option("--note", help="Note for this review decision.")]
+
+
+@review_app.command("list")
+def review_list_command(
+    status: Annotated[ReviewFilter | None, typer.Option("--status")] = None,
+    data_root: ReviewDataRoot = Path("data"),
+) -> None:
+    """List pending and deferred suggestions by default."""
+    paths = AppPaths.from_data_root(data_root)
+    with connect(paths.db_path) as conn:
+        init_db(conn)
+        rows = list_candidates(conn, status)
+    if not rows:
+        typer.echo("No candidates.")
+        return
+    typer.echo("id\tstatus\ttype\tproducer\toriginal\tsuggestion")
+    for row in rows:
+        values = (row[key] for key in (
+            "id", "status", "candidate_type", "producer", "original_text", "suggested_text"
+        ))
+        typer.echo("\t".join(str(value if value is not None else "")[:60]
+                             .replace("\n", " ").replace("\r", " ").replace("\t", " ")
+                             for value in values))
+
+
+@review_app.command("show")
+def review_show_command(candidate_id: int, data_root: ReviewDataRoot = Path("data")) -> None:
+    """Show every candidate field, source context and oldest-first review history."""
+    paths = AppPaths.from_data_root(data_root)
+    with connect(paths.db_path) as conn:
+        init_db(conn)
+        try:
+            candidate = get_candidate(conn, candidate_id)
+            source = get_candidate_source(conn, candidate_id)
+            events = list_review_events(conn, candidate_id)
+        except ReviewError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+    for key in candidate.keys():
+        typer.echo(f"{key}: {candidate[key]}")
+    typer.echo("source:" if source is not None else "source: none")
+    if source is not None:
+        for key in source.keys():
+            typer.echo(f"  {key}: {source[key]}")
+    typer.echo("review history:" if events else "review history: none")
+    for event in events:
+        typer.echo("  " + ", ".join(f"{key}: {event[key]}" for key in event.keys()))
+
+
+def _review_decision(candidate_id: int, status: CandidateStatus, note: str | None, data_root: Path) -> None:
+    paths = AppPaths.from_data_root(data_root)
+    with connect(paths.db_path) as conn:
+        init_db(conn)
+        try:
+            changed = review_candidate(conn, candidate_id, status, note=note)
+        except ReviewError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+    typer.echo(f"candidate {candidate_id} {'already ' if not changed else ''}{status}")
+
+
+@review_app.command("approve")
+def review_approve_command(
+    candidate_id: int, note: ReviewNote = None, data_root: ReviewDataRoot = Path("data")
+) -> None:
+    """Approve a suggestion and create exactly one practice item."""
+    _review_decision(candidate_id, CandidateStatus.APPROVED, note, data_root)
+
+
+@review_app.command("reject")
+def review_reject_command(
+    candidate_id: int, note: ReviewNote = None, data_root: ReviewDataRoot = Path("data")
+) -> None:
+    """Reject a suggestion permanently."""
+    _review_decision(candidate_id, CandidateStatus.REJECTED, note, data_root)
+
+
+@review_app.command("defer")
+def review_defer_command(
+    candidate_id: int, note: ReviewNote = None, data_root: ReviewDataRoot = Path("data")
+) -> None:
+    """Keep a suggestion for later review."""
+    _review_decision(candidate_id, CandidateStatus.DEFERRED, note, data_root)
 
 
 @app.command()

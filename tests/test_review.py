@@ -1,8 +1,10 @@
 import sqlite3
 
 import pytest
+from typer.testing import CliRunner
 
 from self_talk_coach import db
+from self_talk_coach.cli import app
 from self_talk_coach.domain import CandidateType, NewCandidate, TurnSpeaker
 
 
@@ -159,3 +161,90 @@ def test_report_rerun_failure_restores_previous_candidates(seeded):
     with pytest.raises(sqlite3.IntegrityError, match="forced failure"):
         db.replace_conversation_candidates(conn, cid, candidates)
     assert [dict(r) for r in db.list_conversation_candidates(conn, cid)] == before
+
+
+def review_cli(tmp_path, *args):
+    return CliRunner().invoke(app, ["review", *args, "--data-root", str(tmp_path)])
+
+
+def test_cli_list_show_and_review(seeded, tmp_path):
+    conn, _, _ = seeded
+    result = review_cli(tmp_path, "approve", "1", "--note", "keep it")
+    assert result.exit_code == 0, result.output
+    assert "candidate 1 approved" in result.output
+    result = review_cli(tmp_path, "approve", "1")
+    assert result.exit_code == 0
+    assert result.output.strip() == "candidate 1 already approved"
+    result = review_cli(tmp_path, "reject", "1")
+    assert result.exit_code == 1
+    assert "candidate 1 is approved; review decisions are final" in result.output
+    result = review_cli(tmp_path, "list")
+    assert result.exit_code == 0
+    assert "grammar_correction" not in result.output
+    assert "phrase_upgrade" in result.output and "vocabulary" in result.output
+    result = review_cli(tmp_path, "list", "--status", "all")
+    assert result.exit_code == 0
+    assert "grammar_correction" in result.output
+    result = review_cli(tmp_path, "show", "1")
+    assert result.exit_code == 0
+    for key, value in dict(db.get_candidate(conn, 1)).items():
+        assert f"{key}: {value}" in result.output
+    for text in ("conversation_id: 1", "turn_index: 0", "Ich habe einen Frage.", "approve", "keep it"):
+        assert text in result.output
+    assert len(db.list_review_events(conn, 1)) == 1
+
+
+def test_cli_defer_reject_filters_and_missing(seeded, tmp_path):
+    conn, _, _ = seeded
+    for action, status in (("defer", "deferred"), ("reject", "rejected")):
+        result = review_cli(tmp_path, action, "2", "--note", action)
+        assert result.exit_code == 0, result.output
+        result = review_cli(tmp_path, "list", "--status", status)
+        assert result.exit_code == 0
+        assert "phrase_upgrade" in result.output
+        assert "grammar_correction" not in result.output
+    for command in ("show", "approve", "reject", "defer"):
+        result = review_cli(tmp_path, command, "999")
+        assert result.exit_code == 1
+        assert "candidate 999 not found" in result.output
+    result = review_cli(tmp_path, "list", "--status", "invalid")
+    assert result.exit_code == 2
+    assert conn.execute("SELECT count(*) FROM practice_items").fetchone()[0] == 0
+
+
+def test_cli_empty_list(tmp_path):
+    result = review_cli(tmp_path, "list")
+    assert result.exit_code == 0
+    assert result.output.strip() == "No candidates."
+
+
+def test_cli_source_segment_and_none(seeded, tmp_path):
+    conn, _, _ = seeded
+    conn.execute("INSERT INTO media_files (original_filename, original_path, managed_path, content_hash, "
+                 "size_bytes, inferred_session_at, date_confidence, status) "
+                 "VALUES ('test', 'test', 'test', 'test', 1, '2026-11-03', 'high', 'transcribed')")
+    conn.execute("INSERT INTO transcripts (media_file_id, language, model, status) "
+                 "VALUES (1, 'de', 'test', 'completed')")
+    conn.execute("INSERT INTO transcript_segments (transcript_id, start_seconds, end_seconds, text) "
+                 "VALUES (1, 1.25, 3.5, 'Segment text')")
+    conn.execute("UPDATE learning_candidates SET turn_id = NULL, transcript_segment_id = 1 WHERE id = 1")
+    conn.execute("UPDATE learning_candidates SET turn_id = NULL WHERE id = 2")
+    conn.commit()
+    result = review_cli(tmp_path, "show", "1")
+    assert result.exit_code == 0
+    for text in ("Segment text", "start_seconds: 1.25", "end_seconds: 3.5"):
+        assert text in result.output
+    assert "source: none" in review_cli(tmp_path, "show", "2").output
+
+
+def test_cli_list_truncates_text_columns(seeded, tmp_path):
+    conn, _, _ = seeded
+    conn.execute("UPDATE learning_candidates SET original_text = ?, suggested_text = ?, producer = ? "
+                 "WHERE id = 1", ("a" * 80, "b" * 80, "c" * 80))
+    conn.commit()
+    result = review_cli(tmp_path, "list")
+    assert result.exit_code == 0
+    assert "id\tstatus\ttype\tproducer\toriginal\tsuggestion" in result.output
+    for char in "abc":
+        assert char * 60 in result.output
+        assert char * 61 not in result.output
