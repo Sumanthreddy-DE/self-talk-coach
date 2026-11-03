@@ -37,7 +37,6 @@ _(none)_
 
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
-- interview-questionnaire-format - `Myself/Interview-Prep/interview-questionnaire-de.md` has one `##` heading per question (with model answers), so `parse_bank` reads it as 11 junk seeds. Needs its own parser before the session report can show "what you could have said". *(found 2026-10-08, self-talk-coach session)*
 - anki-export - Approved practice items → Anki `.apkg` (genanki), planned in the core design (`stc export anki`). Design to reuse: weekend-MVP blueprint S5 — structured enrich prompt (DE definition, EN translation, gender/separable-prefix, example from the learner's own sentence), prompt caching with the 1024-token prefix minimum (assert `cache_creation_input_tokens > 0` then `cache_read_input_tokens > 0`), `--max-cards` cost cap.
 - stale-state-doing - `STATE.md` Doing/Resume still say `feat/conversation-loop` awaits merge, but `main` already contains it (57e8348). Next session here: refresh Doing + Resume here from git log. *(found 2026-10-08, claude-lab session)*
 - mein-tag-switch-keys - In Mein Tag, w/f reset the partner's memory and reopen; disable or hide them in that mode if it bites.
@@ -48,7 +47,7 @@ _(none)_
 
 ## Doing
 
-_(items currently being worked — move from Open when started, back to Open if paused.)_
+- interview-questionnaire-format — `vps-run: feat/interview-questionnaire` (brief `docs/exec-plans/active/2026-11-03-interview-questionnaire-format.md`, opencode GPT-6.1 Sol, synthetic sample only; laptop review runs it over the real file, expect 56 headings → 55 seeds). `Myself/Interview-Prep/interview-questionnaire-de.md` has one `##` heading per question (with model answers), so `parse_bank` reads it as 11 junk seeds. Needs its own parser before the session report can show "what you could have said". *(found 2026-10-08, self-talk-coach session)*
 
 ---
 
