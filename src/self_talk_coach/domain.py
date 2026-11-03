@@ -65,6 +65,15 @@ class TurnSpeaker(StrEnum):
 CONVERSATION_PRODUCER = "conversation"
 
 
+class CandidateStatus(StrEnum):
+    """Review state; only approval creates practice material."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    DEFERRED = "deferred"
+
+
 class CandidateType(StrEnum):
     """Kind of learning candidate; values shared with the M3 first-language-analysis plan."""
 

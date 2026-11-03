@@ -8,6 +8,7 @@ from pathlib import Path
 
 from self_talk_coach.domain import (
     CONVERSATION_PRODUCER,
+    CandidateStatus,
     ConversationStatus,
     DateConfidence,
     MediaStatus,
@@ -477,3 +478,94 @@ def previous_conversations(
         "AND (scenario IS NULL OR scenario != ?) ORDER BY id DESC LIMIT ?",
         (before_id, ConversationStatus.COMPLETED.value, exclude_scenario or "", limit),
     ).fetchall()
+
+
+class ReviewError(ValueError):
+    """A missing candidate or an invalid review decision."""
+
+
+def get_candidate(conn: sqlite3.Connection, candidate_id: int) -> sqlite3.Row:
+    row = conn.execute("SELECT * FROM learning_candidates WHERE id = ?", (candidate_id,)).fetchone()
+    if row is None:
+        raise ReviewError(f"candidate {candidate_id} not found")
+    return row
+
+
+def list_candidates(
+    conn: sqlite3.Connection, status: CandidateStatus | str | None = None
+) -> list[sqlite3.Row]:
+    if status is None:
+        clause, params = "WHERE status IN ('pending', 'deferred')", ()
+    elif status == "all":
+        clause, params = "", ()
+    else:
+        clause, params = "WHERE status = ?", (CandidateStatus(status).value,)
+    return conn.execute(
+        f"SELECT * FROM learning_candidates {clause} "
+        "ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'deferred' THEN 1 ELSE 2 END, "
+        "candidate_type, id", params,
+    ).fetchall()
+
+
+def get_candidate_source(conn: sqlite3.Connection, candidate_id: int) -> sqlite3.Row | None:
+    candidate = get_candidate(conn, candidate_id)
+    if candidate["turn_id"] is not None:
+        return conn.execute(
+            "SELECT conversation_id, turn_index, text FROM turns WHERE id = ?",
+            (candidate["turn_id"],),
+        ).fetchone()
+    if candidate["transcript_segment_id"] is not None:
+        return conn.execute(
+            "SELECT text, start_seconds, end_seconds FROM transcript_segments WHERE id = ?",
+            (candidate["transcript_segment_id"],),
+        ).fetchone()
+    return None
+
+
+def list_review_events(conn: sqlite3.Connection, candidate_id: int) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM review_events WHERE learning_candidate_id = ? ORDER BY created_at, id",
+        (candidate_id,),
+    ).fetchall()
+
+
+def review_candidate(
+    conn: sqlite3.Connection, candidate_id: int, status: CandidateStatus, *, note: str | None = None
+) -> bool:
+    """Atomically record a decision; return False for a write-free repeated action."""
+    actions = {CandidateStatus.APPROVED: "approve", CandidateStatus.REJECTED: "reject",
+               CandidateStatus.DEFERRED: "defer"}
+    if status not in actions:
+        raise ReviewError(f"invalid review status: {status}")
+    conn.execute("SAVEPOINT review_candidate")
+    try:
+        candidate = get_candidate(conn, candidate_id)
+        current = candidate["status"]
+        if current == status:
+            conn.execute("RELEASE SAVEPOINT review_candidate")
+            return False
+        if current not in (CandidateStatus.PENDING, CandidateStatus.DEFERRED):
+            raise ReviewError(f"candidate {candidate_id} is {current}; review decisions are final")
+        conn.execute(
+            "UPDATE learning_candidates SET status = ?, updated_at = datetime('now') WHERE id = ?",
+            (status, candidate_id),
+        )
+        practice_id = None
+        if status == CandidateStatus.APPROVED:
+            cursor = conn.execute(
+                "INSERT INTO practice_items (learning_candidate_id, practice_type, front, back, notes) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (candidate_id, candidate["candidate_type"], candidate["original_text"],
+                 candidate["suggested_text"] or candidate["original_text"], candidate["explanation"]),
+            )
+            practice_id = cursor.lastrowid
+        conn.execute(
+            "INSERT INTO review_events (learning_candidate_id, practice_item_id, action, note) "
+            "VALUES (?, ?, ?, ?)", (candidate_id, practice_id, actions[status], note),
+        )
+    except Exception:
+        conn.execute("ROLLBACK TO SAVEPOINT review_candidate")
+        conn.execute("RELEASE SAVEPOINT review_candidate")
+        raise
+    conn.execute("RELEASE SAVEPOINT review_candidate")
+    return True
