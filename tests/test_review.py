@@ -213,9 +213,27 @@ def test_cli_defer_reject_filters_and_missing(seeded, tmp_path):
 
 
 def test_cli_empty_list(tmp_path):
+    initialized = CliRunner().invoke(app, ["init", "--data-root", str(tmp_path)])
+    assert initialized.exit_code == 0, initialized.output
     result = review_cli(tmp_path, "list")
     assert result.exit_code == 0
     assert result.output.strip() == "No candidates."
+
+
+@pytest.mark.parametrize("args", [
+    ("list",), ("show", "1"), ("approve", "1"), ("reject", "1"), ("defer", "1"),
+])
+def test_cli_missing_database_does_not_create_workspace(tmp_path, args):
+    data_root = tmp_path / "typo"
+    result = review_cli(data_root, *args)
+    message = (
+        f"no database at {data_root / 'db' / 'self_talk_coach.sqlite'} "
+        f"-- check --data-root, or run: stc init --data-root {data_root}"
+    )
+    assert result.exit_code == 1
+    assert message in result.output
+    assert result.stderr.strip() == message
+    assert not data_root.exists()
 
 
 def test_cli_source_segment_and_none(seeded, tmp_path):

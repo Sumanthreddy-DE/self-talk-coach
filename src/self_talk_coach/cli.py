@@ -54,6 +54,16 @@ ReviewDataRoot = Annotated[Path, typer.Option("--data-root", help="Application d
 ReviewNote = Annotated[str | None, typer.Option("--note", help="Note for this review decision.")]
 
 
+def _require_review_database(paths: AppPaths) -> None:
+    if not paths.db_path.exists():
+        typer.echo(
+            f"no database at {paths.db_path} -- check --data-root, "
+            f"or run: stc init --data-root {paths.data_root}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
 @review_app.command("list")
 def review_list_command(
     status: Annotated[ReviewFilter | None, typer.Option("--status")] = None,
@@ -61,6 +71,7 @@ def review_list_command(
 ) -> None:
     """List pending and deferred suggestions by default."""
     paths = AppPaths.from_data_root(data_root)
+    _require_review_database(paths)
     with connect(paths.db_path) as conn:
         init_db(conn)
         rows = list_candidates(conn, status)
@@ -81,6 +92,7 @@ def review_list_command(
 def review_show_command(candidate_id: int, data_root: ReviewDataRoot = Path("data")) -> None:
     """Show every candidate field, source context and oldest-first review history."""
     paths = AppPaths.from_data_root(data_root)
+    _require_review_database(paths)
     with connect(paths.db_path) as conn:
         init_db(conn)
         try:
@@ -103,6 +115,7 @@ def review_show_command(candidate_id: int, data_root: ReviewDataRoot = Path("dat
 
 def _review_decision(candidate_id: int, status: CandidateStatus, note: str | None, data_root: Path) -> None:
     paths = AppPaths.from_data_root(data_root)
+    _require_review_database(paths)
     with connect(paths.db_path) as conn:
         init_db(conn)
         try:
