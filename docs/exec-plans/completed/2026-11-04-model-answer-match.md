@@ -1,6 +1,6 @@
 # Brief — model answers survive small wording drift
 
-**Status:** active
+**Status:** done
 **Last verified:** 2026-11-04
 **Branch:** `fix/model-answer-match` (cut from `main` at this brief's commit)
 **BACKLOG item:** S3 `model-answer-near-miss` (in **Doing**)
@@ -173,3 +173,7 @@ The comma test also uses an uppercase prepared key to exercise casefolding.
 - Nothing in the requested implementation or acceptance checks was left undone.
   The two existing lint errors were left alone as instructed. No installs,
   network calls, real-database access, CLI runs, pushes or `/save-session` runs.
+
+## Laptop review (2026-11-04)
+
+Merged as `505ad00`. Clean worktree, `PYTHONPATH=src` (the venv's editable install points at the main checkout, so a worktree run without it tests main's code): 207 passed; ruff the same 2 I001. Fail-before with main's `report.py`: the two drift tests fail, the three guards pass. Real data, read-only (`mode=ro`) with the real questionnaire: conversations 12/13/14 match 6/9/2 (was 4/7/2). The one remaining miss is "beruflichen Hintergrund" vs "beruflichen Werdegang" — a synonym, correctly not guessed.
