@@ -37,7 +37,6 @@ _(none)_
 
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
-- model-answer-near-miss - Matching is exact on the question text, so wording drift loses the answer: past `Interview: Core` sessions asked "Erzählen Sie mir bitte etwas über sich." and "Sind Sie bereit umzuziehen?" (scenario bank) while the questionnaire says "Erzählen Sie etwas über sich." / "Sind Sie bereit, umzuziehen?" — conversation 13 matched 7 of 10. Simplest fix: practise from the questionnaire itself (add it to `STC_QUESTION_BANKS`, pick an `Interview: …` section), then seeds match by construction; otherwise align the scenario-bank wording or normalise punctuation. *(found 2026-11-03, claude-lab review)*
 - anki-export - Approved practice items → Anki `.apkg` (genanki), planned in the core design (`stc export anki`). Design to reuse: weekend-MVP blueprint S5 — structured enrich prompt (DE definition, EN translation, gender/separable-prefix, example from the learner's own sentence), prompt caching with the 1024-token prefix minimum (assert `cache_creation_input_tokens > 0` then `cache_read_input_tokens > 0`), `--max-cards` cost cap.
 - stale-state-doing - `STATE.md` Doing/Resume still say `feat/conversation-loop` awaits merge, but `main` already contains it (57e8348). Next session here: refresh Doing + Resume here from git log. *(found 2026-10-08, claude-lab session)*
 - mein-tag-switch-keys - In Mein Tag, w/f reset the partner's memory and reopen; disable or hide them in that mode if it bites.
@@ -49,6 +48,9 @@ _(none)_
 ## Doing
 
 _(items currently being worked — move from Open when started, back to Open if paused.)_
+
+- **vps-run: fix/model-answer-match** — brief `docs/exec-plans/active/2026-11-04-model-answer-match.md` (opencode `dlab/gpt-6-1-sol`), 2026-11-04. Item:
+  - model-answer-near-miss - Matching is exact on the question text, so wording drift loses the answer: past `Interview: Core` sessions asked "Erzählen Sie mir bitte etwas über sich." and "Sind Sie bereit umzuziehen?" (scenario bank) while the questionnaire says "Erzählen Sie etwas über sich." / "Sind Sie bereit, umzuziehen?" — conversation 13 matched 7 of 10. Simplest fix: practise from the questionnaire itself (add it to `STC_QUESTION_BANKS`, pick an `Interview: …` section), then seeds match by construction; otherwise align the scenario-bank wording or normalise punctuation. *(found 2026-11-03, claude-lab review)*
 
 ---
 
