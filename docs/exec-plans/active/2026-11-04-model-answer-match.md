@@ -109,3 +109,67 @@ branch other than `fix/model-answer-match`.
 
 Baseline lines; fail-before result per new test; final pytest and ruff lines; commit
 SHAs; anything not done and why.
+
+## Run report
+
+Executed on the VPS on 2026-11-04, on `fix/model-answer-match`, starting at
+`6ef323f`. The working tree was clean before execution.
+
+### Baseline (before any edit)
+
+- `.venv/bin/python -m pytest -q -p no:cacheprovider` → `202 passed in 21.24s`.
+- `.venv/bin/ruff check src tests` → `Found 2 errors.` / `[*] 2 fixable with --fix.`
+  Both were pre-existing I001 findings: `src/self_talk_coach/conversation/session.py:3`
+  and `tests/conversation/test_partner.py:226`.
+
+### Fail-before evidence
+
+Added the five tests first, then ran them against the unchanged production code:
+
+```bash
+.venv/bin/python -m pytest -v -p no:cacheprovider tests/conversation/test_report.py -k model_answer_match
+```
+
+| New test | Before fix | After fix (full suite) |
+|---|---|---|
+| `test_model_answer_match_comma_and_case_drift` | FAILED: expected Musterantworten section absent | PASSED |
+| `test_model_answer_match_extra_words` | FAILED: expected Musterantworten section absent | PASSED |
+| `test_model_answer_match_no_cross_match` | PASSED | PASSED |
+| `test_model_answer_match_ambiguous_subset` | PASSED | PASSED |
+| `test_model_answer_match_short_key_not_subset` | PASSED | PASSED |
+
+Fail-before summary: `2 failed, 3 passed, 11 deselected in 1.30s`.
+The comma test also uses an uppercase prepared key to exercise casefolding.
+
+### Implementation and final verification
+
+- Added a pure `_prepared_key` resolver: Unicode-aware normalization, unique
+  exact token-sequence match first, then a unique subset with at least three
+  distinct tokens. Absent seeds return no match.
+- Kept the asked seed as heading and grouping key; the resolved prepared key
+  selects the model answer. Existing ordering, follow-up grouping and unanswered
+  question tests pass.
+- `.venv/bin/python -m pytest -q -p no:cacheprovider` → `207 passed in 30.02s`.
+- `.venv/bin/ruff check src tests` → `Found 2 errors.` / `[*] 2 fixable with --fix.`
+  Exactly the same two pre-existing I001 findings; no new findings.
+- `bash scripts/lint-arch.sh` → `lint-arch: PASS — all checks clean`.
+- `git diff --check` → clean.
+- Self-reviewed the entire implementation/test diff against this brief; no
+  additional findings. No fresh-agent review was performed (project engineering
+  rules reserve subagents for explicit user requests).
+
+### Commits and execution notes
+
+- Fix commit: `5557168` — `fix: match model answers across punctuation and extra-word drift`.
+- Run-report commit: the separate commit adding this section, titled
+  `docs: record model-answer match run report` (its SHA is available in `git log`;
+  a commit cannot record its own SHA in its contents).
+- Ruling: ran fail-before before editing `report.py`, rather than stashing a
+  production edit afterward; this proves the same unchanged-code condition
+  directly and avoids unnecessary stash operations.
+- Ruling: used this brief as the execution record and the existing clean target
+  branch, without creating a worktree, scratch ledger or another plan; the brief
+  restricts changes to three files and prohibits any other branch.
+- Nothing in the requested implementation or acceptance checks was left undone.
+  The two existing lint errors were left alone as instructed. No installs,
+  network calls, real-database access, CLI runs, pushes or `/save-session` runs.
