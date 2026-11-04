@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Do not hand-edit. -->
 
 Status: active
-Last touched: 2026-11-03
+Last touched: 2026-11-04
 
 ## What
 German speaking coach: live voice conversation partner (`stc talk`, role-play scenarios, help ladder) plus a local library of self-talk recordings and transcripts. Weekend-MVP blueprint abandoned 2026-10-07. Public repo Sumanthreddy-DE/self-talk-coach (made public 2026-10-07, MIT; README rewritten the same day). Projects-level repo — sessions launch from THIS folder.
@@ -24,6 +24,7 @@ German speaking coach: live voice conversation partner (`stc talk`, role-play sc
 - 2026-10-24/25: Phase 2 Task 11 run live as job interview (conversations 12/13), fixes, merged to main (7cbad89, fbf1e5c): interviewer mode for "Interview…" sections (Sie, bank order, 120 s answers), report timeout 180 s, no case-only errors, miner knows inflected forms, new-word meanings + running list `data/neue-woerter.md`, check no longer consumes a question, TTS failure → text fallback, shorter partner turns (question only after a recast), edge-tts >= 7.3.1, `scripts/talk.bat` + `mein-tag.bat`; README rewritten for Phase 2; plan → completed/; Mein Tag first live run (conversation 15); 160 tests
 - 2026-11-03: review-queue merged into main (`2596830`; BACKLOG `037fba6`): `stc review list|show|approve|reject|defer`, atomic decisions, report reruns keep reviewed candidates (data-loss bug fixed). 186 passed on VPS and laptop. Built on the VPS by opencode `dlab/gpt-6-1-sol`, reviewed in claude-lab.
 - 2026-11-03 (VPS runs, merged from claude-lab): `review-missing-db-silent` merge `dfb086c` (191 passed); `interview-questionnaire-format` merge `ecb55b2` (real file 61 → 60 seeds; 197 passed); `report-model-answers` merge `4bd622e` (`## Musterantworten`; 202 passed). Handoff: harness/sessions/claude-lab/2026-11-03-vps-runs-simready-stc-session.tmp
+- 2026-11-04 (VPS run, merged from claude-lab): model answers survive wording drift, merge `505ad00` (207 passed; real DB 12/13/14 match 6/9/2, was 4/7/2). Closed S3 `model-answer-near-miss`.
 
 ## Doing
 - Demo for the LinkedIn post: clip not cut yet (BACKLOG `demo-clip`)
