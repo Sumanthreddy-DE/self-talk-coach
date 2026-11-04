@@ -178,6 +178,54 @@ def test_model_answers_group_followups_quote_paragraphs_and_keep_unanswered_ques
     assert (tmp_path / "conversations" / f"{cid:04d}" / "report.md").read_text(encoding="utf-8") == text
 
 
+def _model_answer_match_setup(tmp_path: Path, seed: str):
+    conn = connect(tmp_path / "db.sqlite")
+    init_db(conn)
+    cid = insert_conversation(conn, started_at="2026-11-03T10:00:00+00:00", scenario="Interview: Test",
+                              stt_model="s", llm_model="l", tts_voice="v")
+    insert_turn(conn, conversation_id=cid, turn_index=0, speaker=TurnSpeaker.PARTNER, text=seed, seed=seed)
+    insert_turn(conn, conversation_id=cid, turn_index=1, speaker=TurnSpeaker.LEARNER, text="Meine Antwort.")
+    finish_conversation(conn, cid, ended_at="2026-11-03T10:05:00+00:00", status=ConversationStatus.COMPLETED)
+    deps, _ = _deps(conn, tmp_path, FakeClient(json.dumps({})))
+    return deps, cid
+
+
+def test_model_answer_match_comma_and_case_drift(tmp_path: Path) -> None:
+    deps, cid = _model_answer_match_setup(tmp_path, "Sind Sie bereit umzuziehen?")
+    deps.model_answers = {"SIND SIE BEREIT, UMZUZIEHEN?": "Ja, ich bin bereit."}
+    assert build_report(deps, cid).endswith(
+        "\n## Musterantworten\n### Sind Sie bereit umzuziehen?\n"
+        "**Du:** Meine Antwort.\n\n> Ja, ich bin bereit.\n"
+    )
+
+
+def test_model_answer_match_extra_words(tmp_path: Path) -> None:
+    deps, cid = _model_answer_match_setup(tmp_path, "Erzählen Sie mir bitte etwas über sich.")
+    deps.model_answers = {"Erzählen Sie etwas über sich.": "Ich lerne Deutsch."}
+    assert build_report(deps, cid).endswith(
+        "\n## Musterantworten\n### Erzählen Sie mir bitte etwas über sich.\n"
+        "**Du:** Meine Antwort.\n\n> Ich lerne Deutsch.\n"
+    )
+
+
+def test_model_answer_match_no_cross_match(tmp_path: Path) -> None:
+    deps, cid = _model_answer_match_setup(tmp_path, "Was sind Ihre Stärken?")
+    deps.model_answers = {"Was sind Ihre Schwächen?": "Meine Schwächen."}
+    assert "## Musterantworten" not in build_report(deps, cid)
+
+
+def test_model_answer_match_ambiguous_subset(tmp_path: Path) -> None:
+    deps, cid = _model_answer_match_setup(tmp_path, "Was sind Ihre Stärken und Schwächen?")
+    deps.model_answers = {"Was sind Ihre Stärken?": "Meine Stärken.", "Was sind Ihre Schwächen?": "Meine Schwächen."}
+    assert "## Musterantworten" not in build_report(deps, cid)
+
+
+def test_model_answer_match_short_key_not_subset(tmp_path: Path) -> None:
+    deps, cid = _model_answer_match_setup(tmp_path, "Warum möchten Sie bei uns arbeiten?")
+    deps.model_answers = {"Warum?": "Mein Grund."}
+    assert "## Musterantworten" not in build_report(deps, cid)
+
+
 def test_empty_model_answers_preserve_report_text(tmp_path: Path) -> None:
     conn, cid = _interview_setup(tmp_path)
     deps, _ = _deps(conn, tmp_path, FakeClient(json.dumps({})))

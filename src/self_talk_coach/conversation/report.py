@@ -102,15 +102,37 @@ def build_report(deps: ReportDeps, conversation_id: int) -> str:
     return text
 
 
+def _prepared_key(seed: str | None, prepared: Mapping[str, str]) -> str | None:
+    """Resolve wording drift only when a normalized exact or word-subset match is unique."""
+    if seed is None:
+        return None
+
+    def tokens(question: str) -> list[str]:
+        return "".join(c if c.isalnum() or c.isspace() else " " for c in question.casefold()).split()
+
+    seed_tokens = tokens(seed)
+    normalized = {key: tokens(key) for key in prepared}
+    exact = [key for key, words in normalized.items() if words == seed_tokens]
+    if len(exact) == 1:
+        return exact[0]
+    seed_words = set(seed_tokens)
+    subsets = [key for key, words in normalized.items() if len(set(words)) >= 3 and set(words) <= seed_words]
+    return subsets[0] if len(subsets) == 1 else None
+
+
 def _model_answers(turns: Sequence[Turn], prepared: Mapping[str, str]) -> list[tuple[str, str, str]]:
-    """Group answers by exact bank seed, keeping even unanswered questions in asked order."""
+    """Group answers by asked seed, keeping even unanswered questions in asked order."""
+    matched = {
+        t["seed"]: key for t in turns
+        if t["speaker"] == "partner" and (key := _prepared_key(t["seed"], prepared)) is not None
+    }
     answers: dict[str, list[str]] = {
-        t["seed"]: [] for t in turns if t["speaker"] == "partner" and t["seed"] in prepared
+        seed: [] for seed in matched
     }
     for partner, learner in answer_pairs(turns):
         if partner["seed"] in answers:
             answers[partner["seed"]].append(learner["text"])
-    return [(seed, " / ".join(texts) if texts else "–", prepared[seed]) for seed, texts in answers.items()]
+    return [(seed, " / ".join(texts) if texts else "–", prepared[matched[seed]]) for seed, texts in answers.items()]
 
 
 def _findings(
