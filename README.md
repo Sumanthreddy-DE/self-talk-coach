@@ -106,7 +106,23 @@ If the main model fails, the partner retries with the fallback model and the con
 says so. If both fail, the session asks the scenario question directly rather than
 stopping.
 
-### 3. Self-talk library
+### 3. Review and Anki cards
+
+The report stores its corrections as suggestions. Review them, then turn the approved
+ones into Anki cards (`.apkg`, imports into Anki desktop and AnkiDroid):
+
+```bash
+stc review list                            # pending and deferred suggestions
+stc review show 12                         # one suggestion with the sentence it came from
+stc review approve 12                      # or: reject / defer, with --note "..."
+stc export anki                            # new approved items -> data/exports/anki/stc-<time>.apkg
+```
+
+Each run exports only items not exported before; `--all` exports every approved item
+again. Cards keep a fixed id, so importing a later package updates them instead of
+adding duplicates.
+
+### 4. Self-talk library
 
 Record yourself talking German, then turn the videos into searchable transcripts.
 Transcription runs locally with `faster-whisper`; nothing leaves your machine.
@@ -202,7 +218,8 @@ src/self_talk_coach/
 ├── db.py, paths.py         # SQLite schema and the data/ layout
 ├── ingest.py, transcribe.py, transcript_export.py   # self-talk library
 ├── mine.py                 # new-word miner used by the report
-└── enrich.py, anki.py      # Anki export from the first MVP (not in the CLI yet)
+├── anki.py                 # stc export anki: approved practice items -> .apkg
+└── enrich.py               # card enrichment (stub, not built yet)
 resources/baseline-de-b1.txt      # ~4000 B1 lemmas from wordfreq (MIT), see resources/README.md
 docs/adr/                         # design decisions, e.g. own turn loop over a voice-agent framework
 ```
@@ -218,8 +235,8 @@ Mein Tag is built and unit-tested but has not had a live run yet.
 
 If the text-to-speech service fails, the console says why and shows the partner's
 text instead, and the conversation goes on.
-Next: a review queue for the stored corrections, then Anki export (`enrich.py` /
-`anki.py`, not wired into the CLI yet).
+The review queue and Anki export work; cards hold the sentence, the correction and its
+explanation. Next: enrich cards (definition, translation, gender, example) in `enrich.py`.
 
 ## License
 
