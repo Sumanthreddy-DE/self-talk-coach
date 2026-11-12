@@ -3,7 +3,7 @@
 <!-- Machine-maintained by save-session Step 6b. Do not hand-edit. -->
 
 Status: active
-Last touched: 2026-11-04
+Last touched: 2026-11-12
 
 ## What
 German speaking coach: live voice conversation partner (`stc talk`, role-play scenarios, help ladder) plus a local library of self-talk recordings and transcripts. Weekend-MVP blueprint abandoned 2026-10-07. Public repo Sumanthreddy-DE/self-talk-coach (made public 2026-10-07, MIT; README rewritten the same day). Projects-level repo — sessions launch from THIS folder.
@@ -25,17 +25,20 @@ German speaking coach: live voice conversation partner (`stc talk`, role-play sc
 - 2026-11-03: review-queue merged into main (`2596830`; BACKLOG `037fba6`): `stc review list|show|approve|reject|defer`, atomic decisions, report reruns keep reviewed candidates (data-loss bug fixed). 186 passed on VPS and laptop. Built on the VPS by opencode `dlab/gpt-6-1-sol`, reviewed in claude-lab.
 - 2026-11-03 (VPS runs, merged from claude-lab): `review-missing-db-silent` merge `dfb086c` (191 passed); `interview-questionnaire-format` merge `ecb55b2` (real file 61 → 60 seeds; 197 passed); `report-model-answers` merge `4bd622e` (`## Musterantworten`; 202 passed). Handoff: harness/sessions/claude-lab/2026-11-03-vps-runs-simready-stc-session.tmp
 - 2026-11-04 (VPS run, merged from claude-lab): model answers survive wording drift, merge `505ad00` (207 passed; real DB 12/13/14 match 6/9/2, was 4/7/2). Closed S3 `model-answer-near-miss`.
+- 2026-11-12: BACKLOG/STATE reconciled with the code (branch `chore/backlog-truth-sweep`, 207 passed): `first-language-analysis` and `anki-export` rewritten to what is left, `stale-state-doing` closed.
 
 ## Doing
-- Demo for the LinkedIn post: clip not cut yet (BACKLOG `demo-clip`)
-- Interview-Tag daily practice: designed 2026-10-29, bank location undecided (BACKLOG `interview-tag`)
+- Nothing in progress in code: last code merge `505ad00` (2026-11-04); `main` has every feature branch (conversation-loop `fa2d931`, phase2-report, review-queue, interview-questionnaire, report-model-answers, model-answer-match).
+- Demo for the LinkedIn post: clip not cut yet, README has no demo link (BACKLOG `demo-clip`)
+- Interview-Tag daily practice: designed 2026-10-29, bank location undecided, the ~2026-10-31 sachs call date has passed (BACKLOG `interview-tag`)
 
 ## Pipeline
-- M3 first-language-analysis (plan written 5f7670a, not started — no `analyze.py`)
+- M3 first-language-analysis (plan 5f7670a, paused): candidate enums + review queue exist for conversations, but no `analyze.py`, no `stc analyze`, nothing links candidates to transcript segments; plan Task 1 conflicts with the current `CandidateType` (BACKLOG S2)
+- anki-export: `anki.py`/`enrich.py` still stubs, no `stc export anki`; approved `practice_items` are ready to export (BACKLOG S3)
 - interview-tag: daily German interview practice from career-ops applications (BACKLOG S2)
 
 ## Resume here
-Time-critical first: user picks the Interview-Tag bank location ((a) `Myself/` bank file, recommended, or (b) per application folder), then says "Interview-Tag: 104 sachs" — Claude writes the morning sheet + `## Interview: sachs` section from `career-ops/applications/104-sachs-development/` before the ~2026-10-31 call. Then demo: user cuts the demo in Clipchamp from the conversation 13 recording (turns 0–4 + report; drop salary, Reutlingen, "Geld"), uploads the mp4 to a GitHub issue comment and sends the user-attachments link; then add it to the top of README and draft the LinkedIn post. Optional: Mein Tag run with English words (BACKLOG `mein-tag-live-check`).
+Ask the user first whether Interview-Tag is still wanted now that the ~2026-10-31 sachs call has passed; if yes, they pick the bank location ((a) `Myself/` bank file, recommended, or (b) per application folder) and name the next application. Then demo: user cuts the demo in Clipchamp from the conversation 13 recording (turns 0–4 + report; drop salary, Reutlingen, "Geld"), uploads the mp4 to a GitHub issue comment and sends the user-attachments link; then add it to the top of README and draft the LinkedIn post. Next code task when wanted: `anki-export` (smallest step from approved `practice_items` to cards) or M3 after its plan is reconciled with `CandidateType` (BACKLOG `first-language-analysis`). Optional: Mein Tag run with English words (BACKLOG `mein-tag-live-check`).
 
 ## Landmines
 - `stc talk` needs a real Windows console (msvcrt keys) and the repo root as cwd (`data/` is relative).
