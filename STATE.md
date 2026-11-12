@@ -26,6 +26,7 @@ German speaking coach: live voice conversation partner (`stc talk`, role-play sc
 - 2026-11-03 (VPS runs, merged from claude-lab): `review-missing-db-silent` merge `dfb086c` (191 passed); `interview-questionnaire-format` merge `ecb55b2` (real file 61 → 60 seeds; 197 passed); `report-model-answers` merge `4bd622e` (`## Musterantworten`; 202 passed). Handoff: harness/sessions/claude-lab/2026-11-03-vps-runs-simready-stc-session.tmp
 - 2026-11-04 (VPS run, merged from claude-lab): model answers survive wording drift, merge `505ad00` (207 passed; real DB 12/13/14 match 6/9/2, was 4/7/2). Closed S3 `model-answer-near-miss`.
 - 2026-11-12: BACKLOG/STATE reconciled with the code (branch `chore/backlog-truth-sweep`, 207 passed): `first-language-analysis` and `anki-export` rewritten to what is left, `stale-state-doing` closed.
+- 2026-11-12: `stc export anki` merged (`8beb9d0`, 214 passed): approved practice items → `.apkg`, no enrichment yet.
 
 ## Doing
 - Nothing in progress in code: last code merge `505ad00` (2026-11-04); `main` has every feature branch (conversation-loop `fa2d931`, phase2-report, review-queue, interview-questionnaire, report-model-answers, model-answer-match).
@@ -34,11 +35,11 @@ German speaking coach: live voice conversation partner (`stc talk`, role-play sc
 
 ## Pipeline
 - M3 first-language-analysis (plan 5f7670a, paused): candidate enums + review queue exist for conversations, but no `analyze.py`, no `stc analyze`, nothing links candidates to transcript segments; plan Task 1 conflicts with the current `CandidateType` (BACKLOG S2)
-- anki-export: `anki.py`/`enrich.py` still stubs, no `stc export anki`; approved `practice_items` are ready to export (BACKLOG S3)
+- anki-export-enrich: `stc export anki` works (merge `8beb9d0`, no enrichment); next: `enrich.py` + `--max-cards`, first real check on the laptop DB + AnkiDroid (BACKLOG S3)
 - interview-tag: daily German interview practice from career-ops applications (BACKLOG S2)
 
 ## Resume here
-Ask the user first whether Interview-Tag is still wanted now that the ~2026-10-31 sachs call has passed; if yes, they pick the bank location ((a) `Myself/` bank file, recommended, or (b) per application folder) and name the next application. Then demo: user cuts the demo in Clipchamp from the conversation 13 recording (turns 0–4 + report; drop salary, Reutlingen, "Geld"), uploads the mp4 to a GitHub issue comment and sends the user-attachments link; then add it to the top of README and draft the LinkedIn post. Next code task when wanted: `anki-export` (smallest step from approved `practice_items` to cards) or M3 after its plan is reconciled with `CandidateType` (BACKLOG `first-language-analysis`). Optional: Mein Tag run with English words (BACKLOG `mein-tag-live-check`).
+Ask the user first whether Interview-Tag is still wanted now that the ~2026-10-31 sachs call has passed; if yes, they pick the bank location ((a) `Myself/` bank file, recommended, or (b) per application folder) and name the next application. Then demo: user cuts the demo in Clipchamp from the conversation 13 recording (turns 0–4 + report; drop salary, Reutlingen, "Geld"), uploads the mp4 to a GitHub issue comment and sends the user-attachments link; then add it to the top of README and draft the LinkedIn post. Next: run `stc export anki` on the laptop DB and import into AnkiDroid. Next code task when wanted: `anki-export-enrich` or M3 after its plan is reconciled with `CandidateType` (BACKLOG `first-language-analysis`). Optional: Mein Tag run with English words (BACKLOG `mein-tag-live-check`).
 
 ## Landmines
 - `stc talk` needs a real Windows console (msvcrt keys) and the repo root as cwd (`data/` is relative).
