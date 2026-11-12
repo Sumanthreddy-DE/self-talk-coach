@@ -43,6 +43,7 @@ Ask the user first whether Interview-Tag is still wanted now that the ~2026-10-3
 
 ## Landmines
 - `stc talk` needs a real Windows console (msvcrt keys) and the repo root as cwd (`data/` is relative).
+- Tests in a `git worktree`: run `PYTHONPATH=src .venv/bin/python -m pytest` with the main checkout's venv — the editable install points at the main checkout, so a plain `pytest` tests main's code, not the branch.
 - `av<19` pin is load-bearing: av 19 breaks faster-whisper 1.2.1 (`open(metadata_errors=)`).
 - LLM via dlabkeys reseller gateway: models listed ≠ available; plan can lapse mid-day (429). Fallback warning shows it.
 - Typer: single registered command auto-promotes to root and breaks subcommand routing — always keep ≥2 commands registered
