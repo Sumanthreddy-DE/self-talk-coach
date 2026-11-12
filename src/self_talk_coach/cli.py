@@ -8,6 +8,7 @@ from typing import Annotated
 
 import typer
 
+from self_talk_coach.anki import export_practice_items
 from self_talk_coach.conversation.mein_tag import MEIN_TAG
 from self_talk_coach.conversation.report_metrics import median_freeze
 from self_talk_coach.db import (
@@ -269,6 +270,26 @@ def export_transcripts_command(
         )
 
     typer.echo(f"Exported transcripts: {len(exported_paths)}")
+
+
+@export_app.command("anki")
+def export_anki_command(
+    data_root: ReviewDataRoot = Path("data"),
+    include_exported: Annotated[
+        bool, typer.Option("--all", help="Also re-export items exported before.")
+    ] = False,
+) -> None:
+    """Export approved practice items to an Anki .apkg package."""
+    paths = AppPaths.from_data_root(data_root)
+    _require_review_database(paths)
+    with connect(paths.db_path) as conn:
+        init_db(conn)
+        result = export_practice_items(conn, paths.exports_anki, include_exported=include_exported)
+    if result.path is None:
+        typer.echo("No practice items to export.")
+        return
+    typer.echo(f"Exported practice items: {result.count}")
+    typer.echo(f"Anki package: {result.path}")
 
 
 @app.command("talk")

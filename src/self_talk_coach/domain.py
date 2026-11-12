@@ -82,6 +82,13 @@ class CandidateType(StrEnum):
     VOCABULARY = "vocabulary"
 
 
+class ExportStatus(StrEnum):
+    """Anki export state of one practice item."""
+
+    NOT_EXPORTED = "not_exported"
+    EXPORTED = "exported"
+
+
 class ReportStatus(StrEnum):
     """Session-report state of one conversation."""
 
