@@ -27,12 +27,11 @@ _(none)_
 - **first-language-analysis** [later · you] — Decide whether stored self-talk transcript segments use the regex rule catalog or ADR 0006's LLM + quote check before rewriting stale plan `2026-06-02-first-language-analysis.md` and building `stc analyze`. *(found 2026-06-02; rechecked 2026-11-12)*
   Prompt:
     Generate pending correction and upgrade candidates from stored transcript segments (the self-talk recording library). Partly in place, built for conversations, not for transcripts: `CandidateType`/`CandidateStatus` (`domain.py`, 300b41d), `learning_candidates.transcript_segment_id` column, review queue shows a segment as the source (`get_candidate_source`, 28bef5e). Still missing: `analyze.py`, `stc analyze`, `AnalysisOutcome`, the segment query + idempotent insert (`list_completed_transcript_segments_for_analysis`, `insert_learning_candidate`, unique identity index), anything that writes `transcript_segment_id` or sets media status `analyzed`, tests. Plan `docs/superpowers/plans/2026-06-02-first-language-analysis.md` is stale before execution: its Task 1 redefines `CandidateType` with 8 values and `vocab_candidate` where code has 3 and `vocabulary`; decide first whether segments get the plan's regex rule catalog or the conversation report's LLM + quote check (ADR 0006).
-- **question-banks-missing** [later · claude] — McDonald's and cold-call scenarios are done in `Myself/German-Learning/scenario-bank.md`; still missing: telc B1 Sprechen cards (Kontakt aufnehmen, Präsentation, gemeinsam planen) and a larger free-talk topic bank (draft → user approval). *(found 2026-10-05)*
 - **llm-provider-reliability** [later · you] — Decide between renewed dlabkeys and official DeepSeek API for `stc talk` (`space-bunny` / `glm-5-3` returned empty replies; consider a startup preflight check so `stc talk` fails fast). *(found 2026-10-05)*
 - **web-ui** [later · claude] — Browser frontend for the conversation partner after terminal v1 (candidate: Chainlit Apache-2.0; needs hidden partner text, help-ladder timers, freeze-time capture). *(found 2026-10-05)*
 - **plan-location** [later · model] — Plans/spec live in `docs/superpowers/` (blocked for new files by harness hook). Move M1/M2 plans to `docs/exec-plans/completed/` and M3 plan + spec to `docs/exec-plans/` after confirming target paths. *(found 2026-09-28)*
 - **mein-tag-live-check** [later · you] — First live run passed (2026-10-25, conversation 15); still untested: English words taken up in German / English → Deutsch section, plus imperative `"erzähl"` miner noise. *(found 2026-10-24, self-talk-coach session)*
-- **anki-export-live-check** [later · you] — Run `.venv\Scripts\stc export anki` on the laptop DB, import `data/exports/anki/stc-<time>.apkg` into AnkiDroid on the phone, verify card count/formatting/umlauts, and decide the card-front question for `anki-export-enrich`. *(added 2026-11-12, self-talk-coach session)*
+- **anki-export-live-check** [later · you] — Run `.venv\Scripts\stc export anki` on the laptop DB, import `data/exports/anki/stc-<time>.apkg` into AnkiDroid on the phone, verify card count/formatting/umlauts, and decide the card-front question for `anki-export-enrich`. *(added 2026-11-12, self-talk-coach session)* *(absorbs `anki-export-enrich` — triage 2026-11-19)*
   Prompt:
     On the laptop, in the repo root: `git pull`, then `.venv\Scripts\stc export anki`; expect "Exported practice items: N" and a file `data/exports/anki/stc-<time>.apkg`. Copy it to the phone and import it in AnkiDroid (deck `self-talk-coach`). Check: card count = N, prompt/sentence/correction/explanation render, umlauts and quotes look right, vocabulary cards show only the explanation on the back. The run marks the items `exported`; if the import fails, rerun with `--all` to rebuild the package. Then decide the open card-front question in `anki-export-enrich`.
 - **demo-clip** [later · you] — Cut the 60–90 s LinkedIn/README demo clip from conversation 13 (keep turns 0–4 + report; remove salary, Reutlingen, and "Geld" parts; <10 MB 1080p mp4), embed at top of `README.md`, then write the LinkedIn post. *(found 2026-10-24, self-talk-coach session)*
@@ -42,17 +41,12 @@ _(none)_
 
 ## Open — S3 (tech debt, deprecations, low-impact polish)
 
-- **anki-export-enrich** [later · claude] — After `anki-export-live-check` passes and the card-front question is settled, implement LLM card enrichment in `enrich.py` + `--max-cards` cap on `stc export anki`. *(found 2026-11-12)*
-  Prompt:
-    Step 2 of Anki export: enrich cards before export (DE definition, EN translation, gender/separable-prefix, example from the learner's own sentence) in `enrich.py` (still a 4-line stub), plus a `--max-cards` cost cap on `stc export anki`. Design to reuse: weekend-MVP blueprint S5 structured enrich prompt. Its prompt-caching rule (1024-token prefix, `cache_creation_input_tokens`/`cache_read_input_tokens` asserts) is Anthropic-specific; the partner runs on dlabkeys/DeepSeek, so redo caching for whichever provider enrichment uses. Open question: card front shows the learner's wrong sentence ("Korrigiere:"); switch to a cloze of the correct sentence if reviewing the wrong form hurts.
-
 ---
 
 ## Parked
 
 - **mein-tag-switch-keys** [parked · you] — In Mein Tag, `w`/`f` reset the partner's memory and reopen; disable or hide them in that mode only if accidental resets happen. *(found 2026-10-10)*
 - **recast-length-watch** [parked · you] — Recasts of long learner answers are 14–16 words against the 12-word prompt rule (live probe 2026-10-24 after `6e25e3c`); watch in daily use, add a code cap only if it hurts listening. *(found 2026-10-24, self-talk-coach session)*
-
 
 ---
 
@@ -61,6 +55,13 @@ _(none)_
 _(items currently being worked — move from Open when started, back to Open if paused.)_
 
 ---
+
+## Archived — triage 2026-11-19
+
+- [x] *dropped, triage 2026-11-19* — **question-banks-missing** [later · claude] — McDonald's and cold-call scenarios are done in `Myself/German-Learning/scenario-bank.md`; still missing: telc B1 Sprechen cards (Kontakt aufnehmen, Präsentation, gemeinsam planen) and a larger free-talk topic bank (draft → user approval). *(found 2026-10-05)*
+- [x] *merged into `anki-export-live-check`, triage 2026-11-19* — **anki-export-enrich** [later · claude] — After `anki-export-live-check` passes and the card-front question is settled, implement LLM card enrichment in `enrich.py` + `--max-cards` cap on `stc export anki`. *(found 2026-11-12)*
+  Prompt:
+    Step 2 of Anki export: enrich cards before export (DE definition, EN translation, gender/separable-prefix, example from the learner's own sentence) in `enrich.py` (still a 4-line stub), plus a `--max-cards` cost cap on `stc export anki`. Design to reuse: weekend-MVP blueprint S5 structured enrich prompt. Its prompt-caching rule (1024-token prefix, `cache_creation_input_tokens`/`cache_read_input_tokens` asserts) is Anthropic-specific; the partner runs on dlabkeys/DeepSeek, so redo caching for whichever provider enrichment uses. Open question: card front shows the learner's wrong sentence ("Korrigiere:"); switch to a cloze of the correct sentence if reviewing the wrong form hurts.
 
 ## Done this session (2026-06-01, 2026-10-07, 2026-10-08, 2026-10-10, 2026-10-24)
 
